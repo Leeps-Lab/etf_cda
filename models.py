@@ -1,6 +1,5 @@
 from otree.api import (
-    models, widgets, BaseConstants, BaseSubsession, BaseGroup, BasePlayer,
-    Currency as c, currency_range
+    models, BaseConstants, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
 from .exchange import Exchange
@@ -17,6 +16,7 @@ class Subsession(BaseSubsession):
 
         for group in self.get_groups():
             Exchange.objects.create(group=group)
+
 
 class Group(RedwoodGroup):
     pass
