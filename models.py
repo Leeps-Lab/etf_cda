@@ -3,19 +3,33 @@ from otree.api import (
 )
 from otree_redwood.models import Group as RedwoodGroup
 from .exchange import Exchange
+from .utils import ConfigManager
 
 class Constants(BaseConstants):
     name_in_url = 'etf_cda'
     players_per_group = None
-    num_rounds = 1
+    num_rounds = 99 
 
+    config_fields = {
+        'period_length': int,
+    }
 
 class Subsession(BaseSubsession):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # initialize ConfigManager in init so that it can be accessed
+        # from views, before creating_session is called
+        config_addr = 'etf_cda/configs/' + self.session.config['config_file']
+        self.config = ConfigManager(config_addr, self.round_number, Constants.config_fields)
+
     def creating_session(self):
+        if self.round_number > self.config.num_rounds:
+            return
 
         for group in self.get_groups():
-            Exchange.objects.create(group=group)
+            Exchange.objects.create(group=group, name='A')
 
 
 class Group(RedwoodGroup):

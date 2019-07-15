@@ -4,22 +4,25 @@ from ._builtin import Page, WaitPage
 from .models import Constants
 
 
-class MyPage(Page):
-    pass
+class Market(Page):
+
+    def is_displayed(self):
+        return self.round_number < self.subsession.config.num_rounds
 
 
 class ResultsWaitPage(WaitPage):
 
-    def after_all_players_arrive(self):
-        pass
+    def is_displayed(self):
+        return self.round_number < self.subsession.config.num_rounds
 
 
 class Results(Page):
-    pass
 
+    def is_displayed(self):
+        return self.round_number < self.subsession.config.num_rounds
 
 page_sequence = [
-    MyPage,
+    Market,
     ResultsWaitPage,
     Results
 ]

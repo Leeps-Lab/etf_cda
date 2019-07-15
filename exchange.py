@@ -7,19 +7,22 @@ class Exchange(models.Model):
 
     class Meta:
         app_label = 'etf_cda'
+        unique_together = ['group', 'name']
 
     # the group object associated with this exchange
     group = models.ForeignKey('Group', related_name='exchanges', on_delete=models.CASCADE)
+    # a unique name for this exchange
+    name  = models.CharField(max_length=16)
     
-    # get a queryset of the bids held by this exchange, sorted by ascending price then timestamp
+    # get a queryset of the bids held by this exchange, sorted by descending price then timestamp
     def _get_bids_qset(self):
         return (self.orders.filter(is_bid=True, active=True)
-                          .order_by('-price', 'timestamp'))
+                           .order_by('-price', 'timestamp'))
 
-    # get a queryset of the asks held by this exchange, sorted by descending price then timestamp
+    # get a queryset of the asks held by this exchange, sorted by ascending price then timestamp
     def _get_asks_qset(self):
         return (self.orders.filter(is_bid=False, active=True)
-                          .order_by('price', 'timestamp'))
+                           .order_by('price', 'timestamp'))
     
     # get the best bid in this exchange
     def _get_best_bid(self):

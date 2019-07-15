@@ -7,12 +7,15 @@ class PlayerBot(Bot):
 
     def play_round(self):
 
+        if self.round_number >= self.subsession.config.num_rounds:
+            return
+
         if self.player.id_in_group == 1:
             self.p1_round()
         else:
             self.p2_round()
-
-        yield (views.MyPage)
+    
+        yield (views.Market)
         yield (views.Results)
     
     def p1_round(self):
