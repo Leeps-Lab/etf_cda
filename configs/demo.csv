@@ -1,5 +1,5 @@
-period_length
-5
-2
-1
-8
+period_length,num_assets,asset_endowments,cash_endowment
+5,2,10 10,100
+2,2,20 20,100
+1,4,100 100 40 11,100
+8,3,100 20 11,100

@@ -7,12 +7,12 @@ class Exchange(models.Model):
 
     class Meta:
         app_label = 'etf_cda'
-        unique_together = ['group', 'name']
+        unique_together = ['group', 'asset_name']
 
     # the group object associated with this exchange
     group = models.ForeignKey('Group', related_name='exchanges', on_delete=models.CASCADE)
     # a unique name for this exchange
-    name  = models.CharField(max_length=16)
+    asset_name  = models.CharField(max_length=16)
     
     # get a queryset of the bids held by this exchange, sorted by descending price then timestamp
     def _get_bids_qset(self):
@@ -37,9 +37,9 @@ class Exchange(models.Model):
         print('before insert')
         print(self)
         order = self.orders.create(
-            price    = price,
-            is_bid   = is_bid,
-            pcode    = pcode
+            price  = price,
+            is_bid = is_bid,
+            pcode  = pcode
         )
 
         if is_bid:
@@ -79,9 +79,10 @@ class Exchange(models.Model):
         ask_order.save()
 
         self.group.handle_trade(
-            price     = price,
-            bid_pcode = bid_order.pcode,
-            ask_pcode = ask_order.pcode
+            price      = price,
+            bid_pcode  = bid_order.pcode,
+            ask_pcode  = ask_order.pcode,
+            asset_name = self.asset_name,
         )
     
     def __str__(self):
