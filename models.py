@@ -2,6 +2,8 @@ from otree.api import (
     models, BaseConstants, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
+from django.db import transaction
+from django.db.models import F
 from .exchange import Exchange
 from .utils import ConfigManager
 from jsonfield import JSONField
@@ -66,6 +68,9 @@ class Group(RedwoodGroup):
                 return player
         return None
     
+    def _on_orders_event(self, event):
+        print(event.payload)
+    
     def _handle_message(self, msg):
         if msg['type'] == 'enter':
             self._handle_enter(msg)
@@ -93,13 +98,19 @@ class Group(RedwoodGroup):
         bid_player = self._get_player(bid_pcode)
         ask_player = self._get_player(ask_pcode)
 
-        bid_player.refresh_from_db()
-        bid_player.cash -= price
-        bid_player.save()
+        # update cash with an F-expression for atomicity
+        bid_player.cash = F('cash') - price
+        bid_player.save(update_fields=['cash'])
 
-        ask_player.refresh_from_db()
-        ask_player.assets[asset_name] -= 1
-        ask_player.save()
+        # can't use F-expressions with jsonfield so we have to lock
+        with transaction.atomic():
+            ask_player_locked = (
+                Player.objects
+                      .select_for_update()
+                      .get(pk=ask_player.pk)
+            )
+            ask_player_locked.assets[asset_name] -= 1
+            ask_player_locked.save(update_fields=['assets'])
 
 
 class Player(BasePlayer):
