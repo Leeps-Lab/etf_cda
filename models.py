@@ -2,14 +2,13 @@ from otree.api import (
     models, BaseConstants, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
-from django.db import transaction
-from django.db.models import F
 from .exchange import Exchange
-from .utils import ConfigManager
+from .configmanager import ConfigManager
+from . import validate
 from jsonfield import JSONField
 
 class Constants(BaseConstants):
-    name_in_url = 'etf_cda'
+    name_in_url = 'otree_markets'
     players_per_group = None
     num_rounds = 99 
 
@@ -25,14 +24,11 @@ class Constants(BaseConstants):
     }
 
 class Subsession(BaseSubsession):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # initialize ConfigManager in init so that it can be accessed
-        # from views, before creating_session is called
-        config_addr = 'etf_cda/configs/' + self.session.config['config_file']
-        self.config = ConfigManager(config_addr, self.round_number, Constants.config_fields)
+    
+    @property
+    def config(self):
+        config_addr = 'otree_markets/configs/' + self.session.config['config_file']
+        return ConfigManager(config_addr, self.round_number, Constants.config_fields)
 
     # get a dict mapping asset names to their initial endowments
     def _get_asset_endowments(self):
@@ -61,56 +57,62 @@ class Group(RedwoodGroup):
     # group has a field 'exchanges' which is a related name from a ForeignKey on Exchange
     # this field is a queryset of all the exchange objectes associated with this group
 
-    # get a player object given their participant code
     def _get_player(self, pcode):
+        '''get a player object given its participant code'''
         for player in self.get_players():
             if player.participant.code == pcode:
                 return player
-        return None
+        raise ValueError('invalid player code: "{}"'.format(pcode))
     
-    def _on_orders_event(self, event):
-        print(event.payload)
-    
-    def _handle_message(self, msg):
+    def _on_chan_event(self, event):
+        msg = event.value
         if msg['type'] == 'enter':
-            self._handle_enter(msg)
+            validate.validate_enter(msg['payload'])
+            self._handle_enter(msg['payload'])
+        else:
+            raise ValueError('invalid inbound message type: "{}"'.format(msg['type']))
 
-    def _handle_enter(self, msg):
-        player = self._get_player(msg['pcode'])
+    def _handle_enter(self, enter_msg):
+        player = self._get_player(enter_msg['pcode'])
         player.refresh_from_db()
 
-        if msg['is_bid'] and player.cash < msg['price']:
-            print('{}\'s order rejected: insufficient cash'.format(msg['pcode']))
+        if enter_msg['is_bid'] and player.cash < enter_msg['price']:
+            print('{}\'s order rejected: insufficient cash'.format(enter_msg['pcode']))
             return
-        if not msg['is_bid'] and player.assets[msg['asset_name']] < 1:
-            print('{}\'s order rejected: insufficient amount of asset {}'.format(msg['pcode'], msg['asset_name']))
+        if not enter_msg['is_bid'] and player.assets[enter_msg['asset_name']] < 1:
+            print('{}\'s order rejected: insufficient amount of asset {}'.format(enter_msg['pcode'], enter_msg['asset_name']))
             return
 
-        exchange = self.exchanges.get(asset_name=msg['asset_name'])
-        exchange.enter_order(
-            msg['price'],
-            msg['is_bid'],
-            msg['pcode'],
+        exchange = self.exchanges.get(asset_name=enter_msg['asset_name'])
+        order_id = exchange.enter_order(
+            enter_msg['price'],
+            enter_msg['is_bid'],
+            enter_msg['pcode'],
         )
 
-    def handle_trade(self, price, bid_pcode, ask_pcode, asset_name):
+    def confirm_enter(self, price, is_bid, pcode, asset_name, order_id):
+        confirm_msg = {
+            'type': 'confirm_enter',
+            'payload': {
+                'price': price,
+                'is_bid': is_bid,
+                'pcode': pcode,
+                'asset_name': asset_name,
+                'order_id': order_id,
+            }
+        }
+        self.send('chan', confirm_msg)
+
+    def handle_trade(self, price, bid_pcode, ask_pcode, bid_id, ask_id, asset_name):
         print('trade: {} sold asset {} to {} for {}'.format(ask_pcode, asset_name, bid_pcode, price))
         bid_player = self._get_player(bid_pcode)
         ask_player = self._get_player(ask_pcode)
 
-        # update cash with an F-expression for atomicity
-        bid_player.cash = F('cash') - price
+        bid_player.cash -= price
         bid_player.save(update_fields=['cash'])
 
-        # can't use F-expressions with jsonfield so we have to lock
-        with transaction.atomic():
-            ask_player_locked = (
-                Player.objects
-                      .select_for_update()
-                      .get(pk=ask_player.pk)
-            )
-            ask_player_locked.assets[asset_name] -= 1
-            ask_player_locked.save(update_fields=['assets'])
+        ask_player.assets[asset_name] -= 1
+        ask_player.save(update_fields=['assets'])
 
 
 class Player(BasePlayer):

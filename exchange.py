@@ -6,7 +6,7 @@ class Exchange(models.Model):
     # these are related names from ForeignKey fields on Trade and Order
 
     class Meta:
-        app_label = 'etf_cda'
+        app_label = 'otree_markets'
         unique_together = ['group', 'asset_name']
 
     # the group object associated with this exchange
@@ -14,26 +14,26 @@ class Exchange(models.Model):
     # a unique name for this exchange
     asset_name  = models.CharField(max_length=16)
     
-    # get a queryset of the bids held by this exchange, sorted by descending price then timestamp
     def _get_bids_qset(self):
+        '''get a queryset of the bids held by this exchange, sorted by descending price then timestamp'''
         return (self.orders.filter(is_bid=True, active=True)
                            .order_by('-price', 'timestamp'))
 
-    # get a queryset of the asks held by this exchange, sorted by ascending price then timestamp
     def _get_asks_qset(self):
+        '''get a queryset of the asks held by this exchange, sorted by ascending price then timestamp'''
         return (self.orders.filter(is_bid=False, active=True)
                            .order_by('price', 'timestamp'))
     
-    # get the best bid in this exchange
     def _get_best_bid(self):
+        '''get the best bid in this exchange'''
         return self._get_bids_qset().first()
     
-    # get the best ask in this exchange
     def _get_best_ask(self):
+        '''get the best ask in this exchange'''
         return self._get_asks_qset().first()
 
-    # enter a bid or ask into the exchange
     def enter_order(self, price, is_bid, pcode):
+        '''enter a bid or ask into the exchange'''
         print('before insert')
         print(self)
         order = self.orders.create(
@@ -46,6 +46,7 @@ class Exchange(models.Model):
             self._handle_insert_bid(order)
         else:
             self._handle_insert_ask(order)
+        
         print('after insert')
         print(self)
     
@@ -54,12 +55,26 @@ class Exchange(models.Model):
 
         if best_ask is not None and order.price >= best_ask.price:
             self._handle_trade(bid_order=order, ask_order=best_ask, price=best_ask.price)
+        else:
+            self._send_confirm(order)
     
     def _handle_insert_ask(self, order):
         best_bid = self._get_best_bid()
 
         if best_bid is not None and order.price <= best_bid.price:
             self._handle_trade(bid_order=best_bid, ask_order=order, price=best_bid.price)
+        else:
+            self._send_confirm(order)
+    
+    def _send_confirm(self, order):
+        '''send an order enter confirmation to the group'''
+        self.group.confirm_enter(
+            price      = order.price,
+            is_bid     = order.is_bid,
+            pcode      = order.pcode,
+            asset_name = self.asset_name,
+            order_id   = order.id
+        )
 
     def _handle_trade(self, bid_order=None, ask_order=None, price=None):
         if None in (bid_order, ask_order, price):
@@ -82,14 +97,16 @@ class Exchange(models.Model):
             price      = price,
             bid_pcode  = bid_order.pcode,
             ask_pcode  = ask_order.pcode,
+            bid_id     = bid_order.id,
+            ask_id     = ask_order.id,
             asset_name = self.asset_name,
         )
     
     def __str__(self):
         result  = 'bids:\n'
-        result += '\n'.join('\t' + str(e) for e in self._get_bids_qset())
-        result += 'asks:\n'
-        result += '\n'.join('\t' + str(e) for e in self._get_asks_qset())
+        result += '\n'.join(' ' + str(e) for e in self._get_bids_qset())
+        result += '\nasks:\n'
+        result += '\n'.join(' ' + str(e) for e in self._get_asks_qset())
         return result
 
 
@@ -97,7 +114,7 @@ class Exchange(models.Model):
 class Order(models.Model):
 
     class Meta:
-        app_label = 'etf_cda'
+        app_label = 'otree_markets'
 
     # this time this order was created
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -126,7 +143,7 @@ class Order(models.Model):
 class Trade(models.Model):
 
     class Meta:
-        app_label = 'etf_cda'
+        app_label = 'otree_markets'
 
     # the time this trade occured
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -135,6 +152,6 @@ class Trade(models.Model):
     # the exchange this trade happened in
     exchange  = models.ForeignKey('Exchange', related_name='trades', on_delete=models.CASCADE)
     # the bid order from this trade
-    bid_order = models.OneToOneField(Order, related_name='+', on_delete=models.CASCADE)
+    bid_order = models.OneToOneField('Order', related_name='+', on_delete=models.CASCADE)
     # the ask order from this trade
-    ask_order = models.OneToOneField(Order, related_name='+', on_delete=models.CASCADE)
+    ask_order = models.OneToOneField('Order', related_name='+', on_delete=models.CASCADE)

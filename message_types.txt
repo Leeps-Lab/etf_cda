@@ -1,0 +1,28 @@
+messaging spec:
+
+every message has a type field and a payload field. the type determines the structure of the payload.
+
+inbound messages (frontend -> backend):
+
+{
+    type: 'enter',
+    payload: {
+        price: `int`,
+        is_bid: `boolean,
+        pcode: `string`,
+        asset_name: `string`,
+    }
+}
+
+outbound messages (backend -> frontend):
+
+{
+    type: 'confirm_enter',
+    payload: {
+        price: `int`,
+        is_bid: `boolean`,
+        pcode: `string`,
+        asset_name: `string`,
+        order_id: `int`,
+    }
+}
