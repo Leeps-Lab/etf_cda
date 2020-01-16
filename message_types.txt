@@ -19,11 +19,24 @@ outbound messages (backend -> frontend):
 {
     type: 'confirm_enter',
     payload: {
-        timestamp: `int`,
+        timestamp: `float`,
         price: `int`,
         is_bid: `boolean`,
         pcode: `string`,
         asset_name: `string`,
         order_id: `int`,
+    }
+}
+
+{
+    type: 'confirm_trade',
+    payload: {
+        timestamp: `float`,
+        price: `int`,
+        bid_pcode: `string`,
+        ask_pcode: `string`,
+        bid_order_id: `int`,
+        ask_order_id: `int`,
+        asset_name: `string`,
     }
 }

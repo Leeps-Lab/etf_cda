@@ -1,4 +1,5 @@
 from django.db import models
+from itertools import chain
 
 class Exchange(models.Model):
 
@@ -31,6 +32,11 @@ class Exchange(models.Model):
     def _get_best_ask(self):
         '''get the best ask in this exchange'''
         return self._get_asks_qset().first()
+    
+    def _get_trades_qset(self):
+        '''get a queryset of all trades that have occurred in this exchange, ordered by timestamp'''
+        return (self.trades.order_by('timestamp')
+                           .select_related('bid_order', 'ask_order'))
 
     def enter_order(self, price, is_bid, pcode):
         '''enter a bid or ask into the exchange'''
@@ -95,20 +101,17 @@ class Exchange(models.Model):
         ask_order.save()
 
         self.group.handle_trade(
-            price      = price,
-            bid_pcode  = bid_order.pcode,
-            ask_pcode  = ask_order.pcode,
-            bid_id     = bid_order.id,
-            ask_id     = ask_order.id,
-            asset_name = self.asset_name,
+            timestamp    = trade.timestamp.timestamp(),
+            price        = price,
+            bid_pcode    = bid_order.pcode,
+            ask_pcode    = ask_order.pcode,
+            bid_order_id = bid_order.id,
+            ask_order_id = ask_order.id,
+            asset_name   = self.asset_name,
         )
     
     def __str__(self):
-        result  = 'bids:\n'
-        result += '\n'.join(' ' + str(e) for e in self._get_bids_qset())
-        result += '\nasks:\n'
-        result += '\n'.join(' ' + str(e) for e in self._get_asks_qset())
-        return result
+        return '\n'.join(' ' + str(e) for e in chain(self._get_bids_qset(), self._get_asks_qset()))
 
 
 # this model represents a single order in an exchange

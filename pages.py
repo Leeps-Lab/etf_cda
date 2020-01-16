@@ -9,6 +9,7 @@ class TextInterface(Page):
     def vars_for_template(self):
         bids = []
         asks = []
+        trades = []
         for exchange in self.group.exchanges.all():
             for bid_order in exchange._get_bids_qset():
                 bids.append({
@@ -20,15 +21,23 @@ class TextInterface(Page):
                 })
             for ask_order in exchange._get_asks_qset():
                 asks.append({
-                    'timestamp': unix_time_millis(bid_order.timestamp),
+                    'timestamp': bid_order.timestamp.timestamp(),
                     'price': ask_order.price,
                     'pcode': ask_order.pcode,
                     'order_id': ask_order.id,
                     'asset_name': exchange.asset_name,
                 })
+            for trade in exchange._get_trades_qset():
+                trades.append({
+                    'timestamp': trade.timestamp.timestamp(),
+                    'price': trade.price,
+                    'bid_pcode': trade.bid_order.pcode,
+                    'ask_pcode': trade.ask_order.pcode,
+                })
         return {
             'bids': json.dumps(bids),
             'asks': json.dumps(asks),
+            'trades': json.dumps(trades),
             'assets': json.dumps(self.player.assets),
             'cash': self.player.cash,
         }

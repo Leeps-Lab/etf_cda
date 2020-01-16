@@ -2,6 +2,7 @@ import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polyme
 import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import './order_list.js';
+import './trade_list.js';
 import './order_enter_widget.js';
 
 class TextInterface extends PolymerElement {
@@ -10,6 +11,7 @@ class TextInterface extends PolymerElement {
         return {
             bids: Array,
             asks: Array,
+            trades: Array,
             assets: Object,
             cash: Number,
         };
@@ -18,19 +20,19 @@ class TextInterface extends PolymerElement {
     static get template() {
         return html`
             <style>
-                #order-container {
+                #container {
                     width: 100%;
                     height: 40vh;
                     display: flex;
                     justify-content: space-evenly;
                 }
-                #order-container > div {
+                #container > div {
                     flex: 0 1 20%;
                     display: flex;
                     flex-direction: column;
                     height: 100%;
                 }
-                .flex-fill-vertical {
+                .flex-fill {
                     flex: 1 0 auto;
                 }
             </style>
@@ -44,26 +46,33 @@ class TextInterface extends PolymerElement {
                 id="constants"
             ></otree-constants>
 
-            <div id="order-container">
+            <div id="container">
                 <div>
                     <h3>Bids</h3>
                     <order-list
-                        class="flex-fill-vertical"
+                        class="flex-fill"
                         orders="[[bids]]"
                     ></order-list>
                 </div>
                 <div>
                     <h3>Asks</h3>
                     <order-list
-                        class="flex-fill-vertical"
+                        class="flex-fill"
                         orders="[[asks]]"
                     ></order-list>
                 </div>
                 <div>
+                    <h3>Trades</h3>
+                    <trade-list
+                        class="flex-fill"
+                        trades="[[trades]]"
+                    ></trade-list>
+                </div>
+                <div>
                     <order-enter-widget
+                        class="flex-fill"
                         cash="[[cash]]"
                         assets="[[assets]]"
-                        class="flex-fill-vertical"
                         on-order-entered="_order_entered"
                     ></order-enter-widget>
                 </div>
@@ -74,10 +83,11 @@ class TextInterface extends PolymerElement {
     ready() {
         super.ready();
 
+        // maps incoming message types to their appropriate handler
         this.message_handlers = {
             confirm_enter: this._handle_confirm_enter,
+            confirm_trade: this._handle_confirm_trade,
         };
-        console.log(this.bids);
     }
 
     _on_message(event) {
@@ -140,6 +150,43 @@ class TextInterface extends PolymerElement {
                 asset_name: "A",
             }
         });
+    }
+
+    _handle_confirm_trade(msg) {
+        if (msg.bid_pcode == this.$.constants.participantCode) {
+            this.cash -= msg.price;
+            this.assets[msg.asset_name]++;
+        }
+        if (msg.ask_pcode == this.$.constants.participantCode) {
+            this.cash += msg.price;
+            this.assets[msg.asset_name]--;
+        }
+        this._remove_order(msg.bid_order_id, true);
+        this._remove_order(msg.ask_order_id, false);
+
+        const trade = {
+            timestamp: msg.timestamp,
+            price: msg.price,
+            bid_pcode: msg.bid_pcode,
+            ask_pcode: msg.ask_pcode,
+        }
+        let i;
+        for (; i < this.trades.length; i++)
+            if (this.trades[i].timestamp > msg.timestamp)
+                break;
+        this.splice('trades', i, 0, trade);
+    }
+
+    _remove_order(order_id, is_bid) {
+        const order_store_name = is_bid ? 'bids' : 'asks';
+        const order_store = this.get(order_store_name);
+        let i = 0;
+        for (; i < order_store; i++)
+            if (order_store[i].order_id == order_id)
+                break;
+        if (i >= order_store.length)
+            return;
+        this.splice(order_store_name, i, 1);
     }
 
 }

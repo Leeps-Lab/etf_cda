@@ -104,7 +104,7 @@ class Group(RedwoodGroup):
         }
         self.send('chan', confirm_msg)
 
-    def handle_trade(self, price, bid_pcode, ask_pcode, bid_id, ask_id, asset_name):
+    def handle_trade(self, timestamp, price, bid_pcode, ask_pcode, bid_order_id, ask_order_id, asset_name):
         print('trade: {} sold asset {} to {} for {}'.format(ask_pcode, asset_name, bid_pcode, price))
         bid_player = self._get_player(bid_pcode)
         ask_player = self._get_player(ask_pcode)
@@ -114,6 +114,20 @@ class Group(RedwoodGroup):
 
         ask_player.assets[asset_name] -= 1
         ask_player.save(update_fields=['assets'])
+
+        confirm_msg = {
+            'type': 'confirm_trade',
+            'payload': {
+                'timestamp': timestamp,
+                'price': price,
+                'bid_pcode': bid_pcode,
+                'ask_pcode': ask_pcode,
+                'bid_order_id': bid_order_id,
+                'ask_order_id': ask_order_id,
+                'asset_name': asset_name,
+            }
+        }
+        self.send('chan', confirm_msg)
 
 
 class Player(BasePlayer):
