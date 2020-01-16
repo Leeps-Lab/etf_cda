@@ -8,14 +8,10 @@ class TextInterface extends PolymerElement {
 
     static get properties() {
         return {
-            _bids: {
-                type: Array,
-                value: function () { return []; },
-            },
-            _asks: {
-                type: Array,
-                value: function () { return []; },
-            },
+            bids: Array,
+            asks: Array,
+            assets: Object,
+            cash: Number,
         };
     }
 
@@ -53,18 +49,20 @@ class TextInterface extends PolymerElement {
                     <h3>Bids</h3>
                     <order-list
                         class="flex-fill-vertical"
-                        orders="[[_bids]]"
+                        orders="[[bids]]"
                     ></order-list>
                 </div>
                 <div>
                     <h3>Asks</h3>
                     <order-list
                         class="flex-fill-vertical"
-                        orders="[[_asks]]"
+                        orders="[[asks]]"
                     ></order-list>
                 </div>
                 <div>
                     <order-enter-widget
+                        cash="[[cash]]"
+                        assets="[[assets]]"
                         class="flex-fill-vertical"
                         on-order-entered="_order_entered"
                     ></order-enter-widget>
@@ -79,6 +77,7 @@ class TextInterface extends PolymerElement {
         this.message_handlers = {
             confirm_enter: this._handle_confirm_enter,
         };
+        console.log(this.bids);
     }
 
     _on_message(event) {
@@ -92,6 +91,7 @@ class TextInterface extends PolymerElement {
 
     _handle_confirm_enter(msg) {
         const order = {
+            timestamp: msg.timestamp,
             price: msg.price,
             pcode: msg.pcode,
             asset_name: msg.asset_name,
@@ -103,22 +103,31 @@ class TextInterface extends PolymerElement {
             this._insert_ask(order);
     }
 
+    _compare_orders(o1, o2) {
+        // compare two order objects. sort first by price, then by timestamp
+        // return a positive or negative number a la c strcmp
+        if (o1.price == o2.price)
+            return o1.timestamp - o2.timestamp;
+        else
+            return o1.price - o2.price;
+    }
+
     _insert_bid(order) {
         let i = 0;
-        for (; i < this._bids.length; i++) {
-            if (this._bids[i].price < order.price)
+        for (; i < this.bids.length; i++) {
+            if (this._compare_orders(this.bids[i].price, order.price) < 0)
                 break;
         }
-        this.splice('_bids', i, 0, order);
+        this.splice('bids', i, 0, order);
     }
 
     _insert_ask(order) {
         let i = 0;
-        for (; i < this._asks.length; i++) {
-            if (this._asks[i].price > order.price)
+        for (; i < this.asks.length; i++) {
+            if (this._compare_orders(this.asks[i].price, order.price) > 0)
                 break;
         }
-        this.splice('_asks', i, 0, order);
+        this.splice('asks', i, 0, order);
     }
 
     _order_entered(event) {

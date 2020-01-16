@@ -1,4 +1,5 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
+import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
 class OrderList extends PolymerElement {
@@ -23,14 +24,30 @@ class OrderList extends PolymerElement {
                     text-align: center;
                     margin: 3px;
                 }
+                .my-order {
+                    background-color: lightgreen;
+                }
             </style>
+
+            <otree-constants
+                id="constants"
+            ></otree-constants>
 
             <div id="container">
                 <template is="dom-repeat" items="{{orders}}">
-                    <div>$[[item.price]]</div>
+                    <div class$="[[_getOrderClass(item)]]">$[[item.price]]</div>
                 </template>
             </div>
         `;
+    }
+
+    _getOrderClass(order) {
+        if (order.pcode == this.$.constants.participantCode) {
+            return 'my-order';
+        }
+        else {
+            return '';
+        }
     }
 
 }

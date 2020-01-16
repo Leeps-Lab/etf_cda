@@ -69,6 +69,7 @@ class Exchange(models.Model):
     def _send_confirm(self, order):
         '''send an order enter confirmation to the group'''
         self.group.confirm_enter(
+            timestamp  = order.timestamp.timestamp(),
             price      = order.price,
             is_bid     = order.is_bid,
             pcode      = order.pcode,

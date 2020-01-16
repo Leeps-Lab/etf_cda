@@ -55,7 +55,7 @@ class Subsession(BaseSubsession):
 class Group(RedwoodGroup):
 
     # group has a field 'exchanges' which is a related name from a ForeignKey on Exchange
-    # this field is a queryset of all the exchange objectes associated with this group
+    # this field is a queryset of all the exchange objects associated with this group
 
     def _get_player(self, pcode):
         '''get a player object given its participant code'''
@@ -90,10 +90,11 @@ class Group(RedwoodGroup):
             enter_msg['pcode'],
         )
 
-    def confirm_enter(self, price, is_bid, pcode, asset_name, order_id):
+    def confirm_enter(self, timestamp, price, is_bid, pcode, asset_name, order_id):
         confirm_msg = {
             'type': 'confirm_enter',
             'payload': {
+                'timestamp': timestamp,
                 'price': price,
                 'is_bid': is_bid,
                 'pcode': pcode,

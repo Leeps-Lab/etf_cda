@@ -4,19 +4,42 @@ class OrderEnterWidget extends PolymerElement {
 
     static get properties() {
         return {
+            cash: Number,
+            assets: Object,
         };
     }
 
     static get template() {
         return html`
             <style>
+                #container > div {
+                    margin: 5px;
+                    border: 1px solid black;
+                    padding: 5px;
+                }
+                #container h4 {
+                    margin: 0.2em;
+                }
+                #order-input {
+                    text-align: center;
+                }
             </style>
 
             <div id="container">
-                <label for="price_input">Price</label>
-                <input id="price_input" type="number" min="0">
-                <button type="button" on-click="_enter_order" value="bid">Enter Bid</button>
-                <button type="button" on-click="_enter_order" value="ask">Enter Ask</button>
+                <div id="allocation">
+                    <h4>Your Allocation</h4>
+                    <div>Cash: $[[cash]]</div>
+                    <div>Assets: [[_get_asset_A(assets)]]</div>
+                </div>
+                <div id="order-input">
+                    <h4>Submit an Order</h4>
+                    <label for="price_input">Price</label>
+                    <input id="price_input" type="number" min="0">
+                    <div>
+                        <button type="button" on-click="_enter_order" value="bid">Enter Bid</button>
+                        <button type="button" on-click="_enter_order" value="ask">Enter Ask</button>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -29,6 +52,10 @@ class OrderEnterWidget extends PolymerElement {
             is_bid: is_bid,
         }
         this.dispatchEvent(new CustomEvent('order-entered', {detail: order}));
+    }
+
+    _get_asset_A(assets) {
+        return assets.A
     }
 
 }

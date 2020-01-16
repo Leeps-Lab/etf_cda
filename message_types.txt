@@ -19,6 +19,7 @@ outbound messages (backend -> frontend):
 {
     type: 'confirm_enter',
     payload: {
+        timestamp: `int`,
         price: `int`,
         is_bid: `boolean`,
         pcode: `string`,
