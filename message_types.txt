@@ -14,6 +14,17 @@ inbound messages (frontend -> backend):
     }
 }
 
+{
+    type: 'cancel',
+    payload: {
+        price: `int`,
+        pcode: `string`,
+        order_id: `int`,
+        asset_name: `string`,
+        is_bid: `boolean`,
+    }
+}
+
 outbound messages (backend -> frontend):
 
 {
@@ -37,6 +48,15 @@ outbound messages (backend -> frontend):
         ask_pcode: `string`,
         bid_order_id: `int`,
         ask_order_id: `int`,
+        asset_name: `string`,
+    }
+}
+
+{
+    type: 'confirm_cancel',
+    payload: {
+        order_id: `int`,
+        is_bid: `boolean`,
         asset_name: `string`,
     }
 }

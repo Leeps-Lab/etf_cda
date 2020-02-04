@@ -19,13 +19,26 @@ class OrderList extends PolymerElement {
                     height: 100%;
                     overflow-y: auto;
                 }
-                #container div {
+                #container > div {
+                    position: relative;
                     border: 1px solid black;
                     text-align: center;
                     margin: 3px;
                 }
                 .my-order {
                     background-color: lightgreen;
+                }
+                .cancel-button {
+                    position: absolute;
+                    color: red;
+                    line-height: 0.85;
+                    height: 100%;
+                    right: 10px;
+                    font-size: 150%;
+                    cursor: pointer;
+                }
+                .other-order .cancel-button {
+                    display: none;
                 }
             </style>
 
@@ -35,7 +48,10 @@ class OrderList extends PolymerElement {
 
             <div id="container">
                 <template is="dom-repeat" items="{{orders}}">
-                    <div class$="[[_getOrderClass(item)]]">$[[item.price]]</div>
+                    <div class$="[[_getOrderClass(item)]]">
+                        <span>$[[item.price]]</span>
+                        <span class="cancel-button" on-click="_cancelOrder">&#9746;</span>
+                    </div>
                 </template>
             </div>
         `;
@@ -46,8 +62,13 @@ class OrderList extends PolymerElement {
             return 'my-order';
         }
         else {
-            return '';
+            return 'other-order';
         }
+    }
+
+    _cancelOrder(event) {
+        const order = event.model.item;
+        this.dispatchEvent(new CustomEvent('order-canceled', {detail: order}));
     }
 
 }

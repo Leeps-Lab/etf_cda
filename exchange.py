@@ -13,7 +13,7 @@ class Exchange(models.Model):
     # the group object associated with this exchange
     group = models.ForeignKey('Group', related_name='exchanges', on_delete=models.CASCADE)
     # a unique name for this exchange
-    asset_name  = models.CharField(max_length=16)
+    asset_name = models.CharField(max_length=16)
     
     def _get_bids_qset(self):
         '''get a queryset of the bids held by this exchange, sorted by descending price then timestamp'''
@@ -56,6 +56,17 @@ class Exchange(models.Model):
         print('after insert')
         print(self)
     
+    def cancel_order(self, is_bid, order_id):
+        orders = self._get_bids_qset() if is_bid else self._get_asks_qset()
+        canceled_order = orders.get(id=order_id)
+        canceled_order.active = False
+        canceled_order.save(update_fields=['active'])
+        self.group.confirm_cancel(
+            order_id   = order_id,
+            is_bid     = is_bid,
+            asset_name = self.asset_name
+        )
+    
     def _handle_insert_bid(self, order):
         best_ask = self._get_best_ask()
 
@@ -89,16 +100,12 @@ class Exchange(models.Model):
 
         trade = self.trades.create(
             price     = price,
-            bid_order = ask_order,
+            bid_order = bid_order,
             ask_order = ask_order
         )
 
-        bid_order.active = False
-        bid_order.trade  = trade
-        bid_order.save()
-        ask_order.active = False
-        ask_order.trade  = trade
-        ask_order.save()
+        bid_order.set_traded(trade)
+        ask_order.set_traded(trade)
 
         self.group.handle_trade(
             timestamp    = trade.timestamp.timestamp(),
@@ -141,6 +148,12 @@ class Order(models.Model):
             self.price,
             self.pcode,
         )
+
+    def set_traded(self, trade):
+        '''marks this order as inactive and sets its trade field'''
+        self.active = False
+        self.trade = trade
+        self.save(update_fields=['active', 'trade'])
 
 
 # this model represents a single trade

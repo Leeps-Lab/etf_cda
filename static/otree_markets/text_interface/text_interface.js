@@ -50,15 +50,19 @@ class TextInterface extends PolymerElement {
                 <div>
                     <h3>Bids</h3>
                     <order-list
+                        data-is-bid="true"
                         class="flex-fill"
                         orders="[[bids]]"
+                        on-order-canceled="_order_canceled"
                     ></order-list>
                 </div>
                 <div>
                     <h3>Asks</h3>
                     <order-list
+                        data-is-bid="false"
                         class="flex-fill"
                         orders="[[asks]]"
+                        on-order-canceled="_order_canceled"
                     ></order-list>
                 </div>
                 <div>
@@ -87,6 +91,7 @@ class TextInterface extends PolymerElement {
         this.message_handlers = {
             confirm_enter: this._handle_confirm_enter,
             confirm_trade: this._handle_confirm_trade,
+            confirm_cancel: this._handle_confirm_cancel,
         };
     }
 
@@ -152,6 +157,21 @@ class TextInterface extends PolymerElement {
         });
     }
 
+    _order_canceled(event) {
+        const order = event.detail;
+        const is_bid = event.target.dataset.isBid == 'true';
+        this.$.chan.send({
+            type: 'cancel',
+            payload: {
+                price: order.price,
+                pcode: order.pcode,
+                order_id: order.order_id,
+                asset_name: order.asset_name,
+                is_bid: is_bid,
+            }
+        });
+    }
+
     _handle_confirm_trade(msg) {
         if (msg.bid_pcode == this.$.constants.participantCode) {
             this.cash -= msg.price;
@@ -175,6 +195,10 @@ class TextInterface extends PolymerElement {
             if (this.trades[i].timestamp > msg.timestamp)
                 break;
         this.splice('trades', i, 0, trade);
+    }
+
+    _handle_confirm_cancel(msg) {
+        this._remove_order(msg['order_id'], msg['is_bid'])
     }
 
     _remove_order(order_id, is_bid) {

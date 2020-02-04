@@ -65,14 +65,20 @@ class Group(RedwoodGroup):
         raise ValueError('invalid player code: "{}"'.format(pcode))
     
     def _on_chan_event(self, event):
+        '''the entry point for all incoming (frontend -> backend) messages.
+        dispatches messages to their appropriate handler using their type field'''
         msg = event.value
         if msg['type'] == 'enter':
             validate.validate_enter(msg['payload'])
             self._handle_enter(msg['payload'])
+        elif msg['type'] == 'cancel':
+            validate.validate_cancel(msg['payload'])
+            self._handle_cancel(msg['payload'], event.participant.code)
         else:
             raise ValueError('invalid inbound message type: "{}"'.format(msg['type']))
 
     def _handle_enter(self, enter_msg):
+        '''handle an enter message sent from the frontend'''
         player = self._get_player(enter_msg['pcode'])
         player.refresh_from_db()
 
@@ -89,8 +95,22 @@ class Group(RedwoodGroup):
             enter_msg['is_bid'],
             enter_msg['pcode'],
         )
+    
+    def _handle_cancel(self, cancel_msg, sender_pcode):
+        '''handle a cancel message sent from the frontend'''
+        if cancel_msg['pcode'] != sender_pcode:
+            print('cancel rejected: players can\t cancel others\' orders')
+            return
+        
+        exchange = self.exchanges.get(asset_name=cancel_msg['asset_name'])
+        exchange.cancel_order(
+            cancel_msg['is_bid'],
+            cancel_msg['order_id'],
+        )
 
     def confirm_enter(self, timestamp, price, is_bid, pcode, asset_name, order_id):
+        '''send an order entry confirmation to the frontend. this function is called
+        by the exchange when an order is successfully entered'''
         confirm_msg = {
             'type': 'confirm_enter',
             'payload': {
@@ -105,6 +125,7 @@ class Group(RedwoodGroup):
         self.send('chan', confirm_msg)
 
     def handle_trade(self, timestamp, price, bid_pcode, ask_pcode, bid_order_id, ask_order_id, asset_name):
+        '''send a trade confirmation to the frontend. this function is called by the exchange when a trade occurs'''
         print('trade: {} sold asset {} to {} for {}'.format(ask_pcode, asset_name, bid_pcode, price))
         bid_player = self._get_player(bid_pcode)
         ask_player = self._get_player(ask_pcode)
@@ -124,6 +145,19 @@ class Group(RedwoodGroup):
                 'ask_pcode': ask_pcode,
                 'bid_order_id': bid_order_id,
                 'ask_order_id': ask_order_id,
+                'asset_name': asset_name,
+            }
+        }
+        self.send('chan', confirm_msg)
+    
+    def confirm_cancel(self, order_id, is_bid, asset_name):
+        '''send an order cancel confirmation to the frontend. this function is called
+        by the exchange when an order is successfully canceled'''
+        confirm_msg = {
+            'type': 'confirm_cancel',
+            'payload': {
+                'order_id': order_id,
+                'is_bid': is_bid,
                 'asset_name': asset_name,
             }
         }
