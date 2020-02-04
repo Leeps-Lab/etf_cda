@@ -12,7 +12,7 @@ class Constants(BaseConstants):
     players_per_group = None
     num_rounds = 99 
 
-    asset_names = ['A', 'B', 'C', 'D']
+    asset_names = ['A']
 
     # the columns of the config CSV and their types
     # this dict is used by ConfigManager
@@ -131,10 +131,12 @@ class Group(RedwoodGroup):
         ask_player = self._get_player(ask_pcode)
 
         bid_player.cash -= price
-        bid_player.save(update_fields=['cash'])
+        bid_player.assets[asset_name] += 1
+        bid_player.save()
 
+        ask_player.cash += price
         ask_player.assets[asset_name] -= 1
-        ask_player.save(update_fields=['assets'])
+        ask_player.save()
 
         confirm_msg = {
             'type': 'confirm_trade',

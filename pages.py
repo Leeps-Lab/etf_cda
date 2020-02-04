@@ -21,7 +21,7 @@ class TextInterface(Page):
                 })
             for ask_order in exchange._get_asks_qset():
                 asks.append({
-                    'timestamp': bid_order.timestamp.timestamp(),
+                    'timestamp': ask_order.timestamp.timestamp(),
                     'price': ask_order.price,
                     'pcode': ask_order.pcode,
                     'order_id': ask_order.id,

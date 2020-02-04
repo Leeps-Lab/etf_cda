@@ -40,7 +40,7 @@ class OrderEnterWidget extends PolymerElement {
                         <h4>Your Allocation</h4>
                     </div>
                     <div>Cash: $[[cash]]</div>
-                    <div>Assets: [[_get_asset_A(assets)]]</div>
+                    <div>Assets: [[assets.A]]</div>
                 </div>
                 <div id="order-input">
                     <h4>Submit an Order</h4>
@@ -63,10 +63,6 @@ class OrderEnterWidget extends PolymerElement {
             is_bid: is_bid,
         }
         this.dispatchEvent(new CustomEvent('order-entered', {detail: order}));
-    }
-
-    _get_asset_A(assets) {
-        return assets.A
     }
 
 }

@@ -130,7 +130,7 @@ class TextInterface extends PolymerElement {
     _insert_bid(order) {
         let i = 0;
         for (; i < this.bids.length; i++) {
-            if (this._compare_orders(this.bids[i].price, order.price) < 0)
+            if (this._compare_orders(this.bids[i], order) < 0)
                 break;
         }
         this.splice('bids', i, 0, order);
@@ -139,7 +139,7 @@ class TextInterface extends PolymerElement {
     _insert_ask(order) {
         let i = 0;
         for (; i < this.asks.length; i++) {
-            if (this._compare_orders(this.asks[i].price, order.price) > 0)
+            if (this._compare_orders(this.asks[i], order) > 0)
                 break;
         }
         this.splice('asks', i, 0, order);
@@ -175,11 +175,11 @@ class TextInterface extends PolymerElement {
     _handle_confirm_trade(msg) {
         if (msg.bid_pcode == this.$.constants.participantCode) {
             this.cash -= msg.price;
-            this.assets[msg.asset_name]++;
+            this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) + 1);
         }
         if (msg.ask_pcode == this.$.constants.participantCode) {
             this.cash += msg.price;
-            this.assets[msg.asset_name]--;
+            this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) - 1);
         }
         this._remove_order(msg.bid_order_id, true);
         this._remove_order(msg.ask_order_id, false);
