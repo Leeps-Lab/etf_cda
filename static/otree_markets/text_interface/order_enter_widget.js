@@ -61,6 +61,7 @@ class OrderEnterWidget extends PolymerElement {
         const order = {
             price: price,
             is_bid: is_bid,
+            asset_name: 'A',
         }
         this.dispatchEvent(new CustomEvent('order-entered', {detail: order}));
     }
