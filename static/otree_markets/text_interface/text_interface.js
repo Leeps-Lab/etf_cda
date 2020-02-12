@@ -22,26 +22,32 @@ class TextInterface extends PolymerElement {
     static get template() {
         return html`
             <style>
-                #main-container {
-                    width: 100%;
-                    height: 40vh;
+                .container {
                     display: flex;
                     justify-content: space-evenly;
                 }
-                #main-container > div {
-                    flex: 0 1 20%;
+                .container > div {
                     display: flex;
                     flex-direction: column;
-                    height: 100%;
                 }
                 .flex-fill {
-                    flex: 1 0 auto;
+                    flex: 1 0 0;
+                    min-height: 0;
+                }
+
+                #main-container {
+                    height: 40vh;
+                    margin-bottom: 10px;
+                }
+                #main-container > div {
+                    flex: 0 1 20%;
                 }
 
                 #log-container {
-                    width: 100%;
                     height: 20vh;
-                    padding: 20px;
+                }
+                #log-container > div {
+                    flex: 0 1 90%;
                 }
             </style>
 
@@ -58,7 +64,7 @@ class TextInterface extends PolymerElement {
                 id="constants"
             ></otree-constants>
 
-            <div id="main-container">
+            <div class="container" id="main-container">
                 <div>
                     <h3>Bids</h3>
                     <order-list
@@ -93,11 +99,14 @@ class TextInterface extends PolymerElement {
                     ></order-enter-widget>
                 </div>
             </div>
-            <div id="log-container">
-                <event-log
-                    id="log"
-                    max-entries=100
-                ></event-log>
+            <div class="container" id="log-container">
+                <div>
+                    <event-log
+                        class="flex-fill"
+                        id="log"
+                        max-entries=100
+                    ></event-log>
+                </div>
             </div>
         `;
     }
@@ -210,7 +219,7 @@ class TextInterface extends PolymerElement {
             this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) + 1);
         }
         if (msg.ask_pcode == this.$.constants.participantCode) {
-            this.$.log.info(`You sold to player ${msg.bid_pcode} for ${msg.price}`);
+            this.$.log.info(`You sold to player ${msg.bid_pcode} for \$${msg.price}`);
             this.cash += msg.price;
             this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) - 1);
         }
@@ -231,7 +240,10 @@ class TextInterface extends PolymerElement {
     }
 
     _handle_confirm_cancel(msg) {
-        this._remove_order(msg['order_id'], msg['is_bid'])
+        if (msg.pcode == this.$.constants.participantCode) {
+            this.$.log.info(`You canceled your ${msg.is_bid ? 'bid' : 'ask'}`);
+        }
+        this._remove_order(msg.order_id, msg.is_bid)
     }
 
     _remove_order(order_id, is_bid) {

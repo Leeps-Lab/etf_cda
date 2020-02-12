@@ -4,6 +4,7 @@ every message has a type field and a payload field. the type determines the stru
 
 inbound messages (frontend -> backend):
 
+# enter a regular limit order
 {
     type: 'enter',
     payload: {
@@ -14,6 +15,7 @@ inbound messages (frontend -> backend):
     }
 }
 
+# cancel an order
 {
     type: 'cancel',
     payload: {
@@ -27,6 +29,7 @@ inbound messages (frontend -> backend):
 
 outbound messages (backend -> frontend):
 
+# confirm that a new order was entered
 {
     type: 'confirm_enter',
     payload: {
@@ -39,6 +42,7 @@ outbound messages (backend -> frontend):
     }
 }
 
+# confirm that a trade occurred
 {
     type: 'confirm_trade',
     payload: {
@@ -52,11 +56,13 @@ outbound messages (backend -> frontend):
     }
 }
 
+# confirm that an order was canceled
 {
     type: 'confirm_cancel',
     payload: {
         order_id: `int`,
         is_bid: `boolean`,
         asset_name: `string`,
+        pcode: `string`,
     }
 }

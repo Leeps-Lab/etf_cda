@@ -152,7 +152,7 @@ class Group(RedwoodGroup):
         }
         self.send('chan', confirm_msg)
     
-    def confirm_cancel(self, order_id, is_bid, asset_name):
+    def confirm_cancel(self, order_id, is_bid, asset_name, pcode):
         '''send an order cancel confirmation to the frontend. this function is called
         by the exchange when an order is successfully canceled'''
         confirm_msg = {
@@ -161,6 +161,7 @@ class Group(RedwoodGroup):
                 'order_id': order_id,
                 'is_bid': is_bid,
                 'asset_name': asset_name,
+                'pcode': pcode,
             }
         }
         self.send('chan', confirm_msg)

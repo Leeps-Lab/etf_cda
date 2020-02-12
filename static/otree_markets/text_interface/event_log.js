@@ -30,6 +30,7 @@ class EventLog extends PolymerElement {
                     border: 1px solid black;
                     padding: 10px;
                     overflow-y: scroll;
+                    box-sizing: border-box;
                 }
                 #container div {
                     font-family: monospace;
@@ -87,7 +88,7 @@ class EventLog extends PolymerElement {
 
     _container_scroll(event) {
         const container = event.target;
-        this._scrolled_to_bottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 1;
+        this._scrolled_to_bottom = (container.scrollHeight - container.clientHeight <= container.scrollTop + 1);
     }
 
 }

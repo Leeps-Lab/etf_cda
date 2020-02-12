@@ -40,8 +40,6 @@ class Exchange(models.Model):
 
     def enter_order(self, price, is_bid, pcode):
         '''enter a bid or ask into the exchange'''
-        print('before insert')
-        print(self)
         order = self.orders.create(
             price  = price,
             is_bid = is_bid,
@@ -52,19 +50,17 @@ class Exchange(models.Model):
             self._handle_insert_bid(order)
         else:
             self._handle_insert_ask(order)
-        
-        print('after insert')
-        print(self)
     
     def cancel_order(self, is_bid, order_id):
         orders = self._get_bids_qset() if is_bid else self._get_asks_qset()
         canceled_order = orders.get(id=order_id)
         canceled_order.active = False
-        canceled_order.save(update_fields=['active'])
+        canceled_order.save()
         self.group.confirm_cancel(
             order_id   = order_id,
             is_bid     = is_bid,
-            asset_name = self.asset_name
+            asset_name = self.asset_name,
+            pcode      = canceled_order.pcode
         )
     
     def _handle_insert_bid(self, order):
@@ -73,7 +69,7 @@ class Exchange(models.Model):
         if best_ask is not None and order.price >= best_ask.price:
             self._handle_trade(bid_order=order, ask_order=best_ask, price=best_ask.price)
         else:
-            self._send_confirm(order)
+            self._send_enter_confirmation(order)
     
     def _handle_insert_ask(self, order):
         best_bid = self._get_best_bid()
@@ -81,9 +77,9 @@ class Exchange(models.Model):
         if best_bid is not None and order.price <= best_bid.price:
             self._handle_trade(bid_order=best_bid, ask_order=order, price=best_bid.price)
         else:
-            self._send_confirm(order)
+            self._send_enter_confirmation(order)
     
-    def _send_confirm(self, order):
+    def _send_enter_confirmation(self, order):
         '''send an order enter confirmation to the group'''
         self.group.confirm_enter(
             timestamp  = order.timestamp.timestamp(),

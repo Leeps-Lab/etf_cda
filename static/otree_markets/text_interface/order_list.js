@@ -36,6 +36,7 @@ class OrderList extends PolymerElement {
                     right: 10px;
                     font-size: 150%;
                     cursor: pointer;
+                    user-select: none;
                 }
                 .other-order .cancel-button {
                     display: none;
@@ -58,12 +59,10 @@ class OrderList extends PolymerElement {
     }
 
     _getOrderClass(order) {
-        if (order.pcode == this.$.constants.participantCode) {
+        if (order.pcode == this.$.constants.participantCode)
             return 'my-order';
-        }
-        else {
+        else
             return 'other-order';
-        }
     }
 
     _cancelOrder(event) {

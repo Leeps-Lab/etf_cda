@@ -50,13 +50,14 @@ class SimpleModal extends PolymerElement {
         `;
     }
 
+    // called from outside the component, displays the modal
     show() {
         this.style.display = 'initial';
         // need to wait to set opacity,
         // changing display and opacity in same tick prevents transition from showing
         setTimeout(() => {
             this.style.opacity = 1;
-        })
+        });
     }
 
     _button_click(event) {
