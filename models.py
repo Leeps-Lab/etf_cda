@@ -12,7 +12,7 @@ class Constants(BaseConstants):
     players_per_group = None
     num_rounds = 99 
 
-    asset_names = ['A']
+    asset_names = ['A', 'B', 'C']
 
     # the columns of the config CSV and their types
     # this dict is used by ConfigManager
@@ -83,10 +83,10 @@ class Group(RedwoodGroup):
         player.refresh_from_db()
 
         if enter_msg['is_bid'] and player.cash < enter_msg['price']:
-            print('{}\'s order rejected: insufficient cash'.format(enter_msg['pcode']))
+            self._send_error(enter_msg['pcode'], 'Order rejected: insufficient cash')
             return
         if not enter_msg['is_bid'] and player.assets[enter_msg['asset_name']] < 1:
-            print('{}\'s order rejected: insufficient amount of asset {}'.format(enter_msg['pcode'], enter_msg['asset_name']))
+            self._send_error(enter_msg['pcode'], 'Order rejected: insufficient amount of asset {}'.format(enter_msg['pcode']))
             return
 
         exchange = self.exchanges.get(asset_name=enter_msg['asset_name'])
@@ -165,7 +165,17 @@ class Group(RedwoodGroup):
             }
         }
         self.send('chan', confirm_msg)
-
+    
+    def _send_error(self, pcode, message):
+        '''send an error message to a player'''
+        error_msg = {
+            'type': 'error',
+            'payload': {
+                'pcode': pcode,
+                'message': message,
+            }
+        }
+        self.send('chan', error_msg)
 
 class Player(BasePlayer):
 

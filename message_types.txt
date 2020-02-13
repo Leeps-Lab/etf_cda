@@ -66,3 +66,12 @@ outbound messages (backend -> frontend):
         pcode: `string`,
     }
 }
+
+# report some error to the frontend
+{
+    type: 'error',
+    payload: {
+        pcode: `string`,
+        message: `string`,
+    }
+}

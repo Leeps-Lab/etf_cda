@@ -1,5 +1,12 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 
+/*
+    this component implements a simple modal that gives the user the choice to accept or decline something.
+    to use: set the modal_text and on_close_callback properties then call the show method.
+    on_close_callback will be called when the user selects one of the options. a boolean 'accepted' is passed
+    to this function which reflects whether the user clicked accept or decline.
+*/
+
 class SimpleModal extends PolymerElement {
 
     static get properties() {

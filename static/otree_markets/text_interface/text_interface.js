@@ -113,12 +113,15 @@ class TextInterface extends PolymerElement {
 
     ready() {
         super.ready();
+        // just a nice convenience
+        this.pcode = this.$.constants.participantCode;
 
         // maps incoming message types to their appropriate handler
         this.message_handlers = {
             confirm_enter: this._handle_confirm_enter,
             confirm_trade: this._handle_confirm_trade,
             confirm_cancel: this._handle_confirm_cancel,
+            error: this._handle_error,
         };
     }
 
@@ -149,7 +152,8 @@ class TextInterface extends PolymerElement {
         // compare two order objects. sort first by price, then by timestamp
         // return a positive or negative number a la c strcmp
         if (o1.price == o2.price)
-            return o1.timestamp - o2.timestamp;
+            // sort by descending timestamp
+            return -(o1.timestamp - o2.timestamp);
         else
             return o1.price - o2.price;
     }
@@ -184,7 +188,7 @@ class TextInterface extends PolymerElement {
                 price: order.price,
                 is_bid: order.is_bid,
                 asset_name: order.asset_name,
-                pcode: this.$.constants.participantCode,
+                pcode: this.pcode,
             }
         });
     }
@@ -193,7 +197,7 @@ class TextInterface extends PolymerElement {
         const order = event.detail;
         const is_bid = event.target.dataset.isBid == 'true';
 
-        this.$.modal.modal_text = `Are you sure you want to remove this order?`;
+        this.$.modal.modal_text = 'Are you sure you want to remove this order?';
         this.$.modal.on_close_callback = (accepted) => {
             if (!accepted)
                 return;
@@ -213,12 +217,12 @@ class TextInterface extends PolymerElement {
     }
 
     _handle_confirm_trade(msg) {
-        if (msg.bid_pcode == this.$.constants.participantCode) {
+        if (msg.bid_pcode == this.pcode) {
             this.$.log.info(`You bought from player ${msg.ask_pcode} for \$${msg.price}`);
             this.cash -= msg.price;
             this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) + 1);
         }
-        if (msg.ask_pcode == this.$.constants.participantCode) {
+        if (msg.ask_pcode == this.pcode) {
             this.$.log.info(`You sold to player ${msg.bid_pcode} for \$${msg.price}`);
             this.cash += msg.price;
             this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) - 1);
@@ -240,7 +244,7 @@ class TextInterface extends PolymerElement {
     }
 
     _handle_confirm_cancel(msg) {
-        if (msg.pcode == this.$.constants.participantCode) {
+        if (msg.pcode == this.pcode) {
             this.$.log.info(`You canceled your ${msg.is_bid ? 'bid' : 'ask'}`);
         }
         this._remove_order(msg.order_id, msg.is_bid)
@@ -250,12 +254,17 @@ class TextInterface extends PolymerElement {
         const order_store_name = is_bid ? 'bids' : 'asks';
         const order_store = this.get(order_store_name);
         let i = 0;
-        for (; i < order_store; i++)
+        for (; i < order_store.length; i++)
             if (order_store[i].order_id == order_id)
                 break;
         if (i >= order_store.length)
             return;
         this.splice(order_store_name, i, 1);
+    }
+
+    _handle_error(msg) {
+        if (msg['pcode'] == this.pcode) 
+            this.$.log.error(msg['message'])
     }
 }
 
