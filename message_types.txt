@@ -9,6 +9,7 @@ inbound messages (frontend -> backend):
     type: 'enter',
     payload: {
         price: `int`,
+        volume: `int`,
         is_bid: `boolean,
         pcode: `string`,
         asset_name: `string`,
@@ -43,16 +44,27 @@ outbound messages (backend -> frontend):
 }
 
 # confirm that a trade occurred
+# 
+# timestamp field is the time the trade occurred
+# the orders field is a list of dicts representing the orders that were involved in this trade
+# the timestamp field in these dicts is the time the order was entered
 {
     type: 'confirm_trade',
     payload: {
         timestamp: `float`,
-        price: `int`,
-        bid_pcode: `string`,
-        ask_pcode: `string`,
-        bid_order_id: `int`,
-        ask_order_id: `int`,
         asset_name: `string`,
+        orders: [
+            {
+                timestamp: `float`,
+                price: `int`,
+                volume: `int`,
+                is_bid: `boolean`,
+                pcode: `string`,
+                traded_volume: `int`,
+                order_id: `int`,
+            },
+            ...
+        ]
     }
 }
 

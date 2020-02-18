@@ -50,7 +50,7 @@ class OrderList extends PolymerElement {
             <div id="container">
                 <template is="dom-repeat" items="{{orders}}">
                     <div class$="[[_getOrderClass(item)]]">
-                        <span>$[[item.price]]</span>
+                        <span>[[item.volume]]</span><span>@</span><span>$[[item.price]]</span>
                         <span class="cancel-button" on-click="_cancelOrder">&#9746;</span>
                     </div>
                 </template>

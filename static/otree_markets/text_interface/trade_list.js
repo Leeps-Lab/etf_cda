@@ -32,7 +32,7 @@ class TradeList extends PolymerElement {
 
             <div id="container">
                 <template is="dom-repeat" items="{{trades}}">
-                    <div>$[[item.price]]</div>
+                    <div>$[[item.timestamp]]</div>
                 </template>
             </div>
         `;

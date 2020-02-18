@@ -46,6 +46,8 @@ class OrderEnterWidget extends PolymerElement {
                     <h4>Submit an Order</h4>
                     <label for="price_input">Price</label>
                     <input id="price_input" type="number" min="0">
+                    <label for="volume_input">Volume</label>
+                    <input id="volume_input" type="number" min="1">
                     <div>
                         <button type="button" on-click="_enter_order" value="bid">Enter Bid</button>
                         <button type="button" on-click="_enter_order" value="ask">Enter Ask</button>
@@ -57,9 +59,11 @@ class OrderEnterWidget extends PolymerElement {
 
     _enter_order(event) {
         const price = parseInt(this.$.price_input.value);
+        const volume = parseInt(this.$.volume_input.value);
         const is_bid = (event.target.value == "bid");
         const order = {
             price: price,
+            volume: volume,
             is_bid: is_bid,
             asset_name: 'A',
         }

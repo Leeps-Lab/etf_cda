@@ -72,6 +72,7 @@ class Group(RedwoodGroup):
             validate.validate_enter(msg['payload'])
             self._handle_enter(msg['payload'])
         elif msg['type'] == 'cancel':
+            print(msg['payload'])
             validate.validate_cancel(msg['payload'])
             self._handle_cancel(msg['payload'], event.participant.code)
         else:
@@ -80,18 +81,18 @@ class Group(RedwoodGroup):
     def _handle_enter(self, enter_msg):
         '''handle an enter message sent from the frontend'''
         player = self._get_player(enter_msg['pcode'])
-        player.refresh_from_db()
 
-        if enter_msg['is_bid'] and player.cash < enter_msg['price']:
+        if enter_msg['is_bid'] and player.cash < enter_msg['price'] * enter_msg['volume']:
             self._send_error(enter_msg['pcode'], 'Order rejected: insufficient cash')
             return
-        if not enter_msg['is_bid'] and player.assets[enter_msg['asset_name']] < 1:
-            self._send_error(enter_msg['pcode'], 'Order rejected: insufficient amount of asset {}'.format(enter_msg['pcode']))
+        if not enter_msg['is_bid'] and player.assets[enter_msg['asset_name']] < enter_msg['volume']:
+            self._send_error(enter_msg['pcode'], 'Order rejected: insufficient amount of asset {}'.format(enter_msg['asset_name']))
             return
 
         exchange = self.exchanges.get(asset_name=enter_msg['asset_name'])
         order_id = exchange.enter_order(
             enter_msg['price'],
+            enter_msg['volume'],
             enter_msg['is_bid'],
             enter_msg['pcode'],
         )
@@ -108,7 +109,7 @@ class Group(RedwoodGroup):
             cancel_msg['order_id'],
         )
 
-    def confirm_enter(self, timestamp, price, is_bid, pcode, asset_name, order_id):
+    def confirm_enter(self, timestamp, price, volume, is_bid, pcode, asset_name, order_id):
         '''send an order entry confirmation to the frontend. this function is called
         by the exchange when an order is successfully entered'''
         confirm_msg = {
@@ -116,6 +117,7 @@ class Group(RedwoodGroup):
             'payload': {
                 'timestamp': timestamp,
                 'price': price,
+                'volume': volume,
                 'is_bid': is_bid,
                 'pcode': pcode,
                 'asset_name': asset_name,
@@ -124,30 +126,34 @@ class Group(RedwoodGroup):
         }
         self.send('chan', confirm_msg)
 
-    def handle_trade(self, timestamp, price, bid_pcode, ask_pcode, bid_order_id, ask_order_id, asset_name):
+    def handle_trade(self, timestamp, asset_name, taking_order, making_orders):
         '''send a trade confirmation to the frontend. this function is called by the exchange when a trade occurs'''
-        print('trade: {} sold asset {} to {} for {}'.format(ask_pcode, asset_name, bid_pcode, price))
-        bid_player = self._get_player(bid_pcode)
-        ask_player = self._get_player(ask_pcode)
 
-        bid_player.cash -= price
-        bid_player.assets[asset_name] += 1
-        bid_player.save()
+        taking_player = self._get_player(taking_order['pcode'])
+        for making_order in making_orders:
+            making_player = self._get_player(making_order['pcode'])
+            if making_order['is_bid']:
+                making_player.cash -= making_order['price'] * making_order['traded_volume']
+                making_player.assets[asset_name] += making_order['traded_volume']
 
-        ask_player.cash += price
-        ask_player.assets[asset_name] -= 1
-        ask_player.save()
+                taking_player.cash += making_order['price'] * making_order['traded_volume']
+                taking_player.assets[asset_name] -= making_order['traded_volume']
+            else:
+                making_player.cash += making_order['price'] * making_order['traded_volume']
+                making_player.assets[asset_name] -= making_order['traded_volume']
+
+                taking_player.cash -= making_order['price'] * making_order['traded_volume']
+                taking_player.assets[asset_name] += making_order['traded_volume']
+            making_player.save()
+        taking_player.save()
 
         confirm_msg = {
             'type': 'confirm_trade',
             'payload': {
                 'timestamp': timestamp,
-                'price': price,
-                'bid_pcode': bid_pcode,
-                'ask_pcode': ask_pcode,
-                'bid_order_id': bid_order_id,
-                'ask_order_id': ask_order_id,
                 'asset_name': asset_name,
+                'taking_order': taking_order,
+                'making_orders': making_orders,
             }
         }
         self.send('chan', confirm_msg)

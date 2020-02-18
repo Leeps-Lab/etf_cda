@@ -138,6 +138,7 @@ class TextInterface extends PolymerElement {
         const order = {
             timestamp: msg.timestamp,
             price: msg.price,
+            volume: msg.volume,
             pcode: msg.pcode,
             asset_name: msg.asset_name,
             order_id: msg.order_id,
@@ -186,6 +187,7 @@ class TextInterface extends PolymerElement {
             type: 'enter',
             payload: {
                 price: order.price,
+                volume: order.volume,
                 is_bid: order.is_bid,
                 asset_name: order.asset_name,
                 pcode: this.pcode,
@@ -217,24 +219,46 @@ class TextInterface extends PolymerElement {
     }
 
     _handle_confirm_trade(msg) {
-        if (msg.bid_pcode == this.pcode) {
-            this.$.log.info(`You bought from player ${msg.ask_pcode} for \$${msg.price}`);
-            this.cash -= msg.price;
-            this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) + 1);
+        const taking_order = msg.taking_order;
+        let new_cash = this.cash;
+        let new_assets = this.get('assets');
+        for (const making_order of msg.making_orders) {
+            if (making_order.is_bid) {
+                if (making_order.pcode == this.pcode) {
+                    this.$.log.info(`You bought ${making_order.traded_volume} units of asset ${msg.asset_name}`);
+                    this.cash -= making_order.price * making_order.traded_volume;
+                    this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) + 1);
+                }
+                if (taking_order.pcode == this.pcode) {
+                    new_cash += making_order.price * making_order.traded_volume;
+                    new_assets[msg.asset_name]--;
+                }
+            }
+            else {
+                if (making_order.pcode == this.pcode) {
+                    this.$.log.info(`You sold ${making_order.traded_volume} units of asset ${msg.asset_name}`);
+                    this.cash += making_order.price * making_order.traded_volume;
+                    this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) - 1);
+                }
+                if (taking_order.pcode == this.pcode) {
+                    new_cash += making_order.price * making_order.traded_volume;
+                    new_assets[msg.asset_name]--;
+                }
+            }
+            this._remove_order(making_order.order_id, making_order.is_bid)
         }
-        if (msg.ask_pcode == this.pcode) {
-            this.$.log.info(`You sold to player ${msg.bid_pcode} for \$${msg.price}`);
-            this.cash += msg.price;
-            this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) - 1);
+        if (taking_order.pcode == this.pcode) {
+            this.$.log.info(`You ${taking_order.is_bid ? 'bought' : 'sold'} ${taking_order.traded_volume} units of asset ${msg.asset_name}`)
+            this.cash = new_cash;
+            this.set('assets', new_assets);
         }
-        this._remove_order(msg.bid_order_id, true);
-        this._remove_order(msg.ask_order_id, false);
+        this._remove_order(taking_order.order_id, taking_order.is_bid)
 
         const trade = {
             timestamp: msg.timestamp,
-            price: msg.price,
-            bid_pcode: msg.bid_pcode,
-            ask_pcode: msg.ask_pcode,
+            asset_name: msg.asset_name,
+            taking_order: taking_order,
+            making_orders: msg.making_orders,
         }
         let i;
         for (; i < this.trades.length; i++)
@@ -263,7 +287,7 @@ class TextInterface extends PolymerElement {
     }
 
     _handle_error(msg) {
-        if (msg['pcode'] == this.pcode) 
+        if (msg.pcode == this.pcode) 
             this.$.log.error(msg['message'])
     }
 }

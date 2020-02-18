@@ -12,27 +12,15 @@ class TextInterface(Page):
         trades = []
         for exchange in self.group.exchanges.all():
             for bid_order in exchange._get_bids_qset():
-                bids.append({
-                    'timestamp': bid_order.timestamp.timestamp(),
-                    'price': bid_order.price,
-                    'pcode': bid_order.pcode,
-                    'order_id': bid_order.id,
-                    'asset_name': exchange.asset_name,
-                })
+                bids.append(bid_order.as_dict())
             for ask_order in exchange._get_asks_qset():
-                asks.append({
-                    'timestamp': ask_order.timestamp.timestamp(),
-                    'price': ask_order.price,
-                    'pcode': ask_order.pcode,
-                    'order_id': ask_order.id,
-                    'asset_name': exchange.asset_name,
-                })
+                asks.append(ask_order.as_dict())
             for trade in exchange._get_trades_qset():
                 trades.append({
                     'timestamp': trade.timestamp.timestamp(),
-                    'price': trade.price,
-                    'bid_pcode': trade.bid_order.pcode,
-                    'ask_pcode': trade.ask_order.pcode,
+                    'asset_name': exchange.asset_name,
+                    'taking_order': trade.taking_order.as_dict(),
+                    'making_orders': trade.get_making_orders_dicts(),
                 })
         return {
             'bids': json.dumps(bids),
@@ -43,19 +31,19 @@ class TextInterface(Page):
         }
 
     def is_displayed(self):
-        return self.round_number < self.subsession.config.num_rounds
+        return self.round_number <= self.subsession.config.num_rounds
 
 
 class ResultsWaitPage(WaitPage):
 
     def is_displayed(self):
-        return self.round_number < self.subsession.config.num_rounds
+        return self.round_number <= self.subsession.config.num_rounds
 
 
 class Results(Page):
 
     def is_displayed(self):
-        return self.round_number < self.subsession.config.num_rounds
+        return self.round_number <= self.subsession.config.num_rounds
 
 page_sequence = [
     TextInterface,
