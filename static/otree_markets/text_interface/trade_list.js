@@ -2,6 +2,11 @@ import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polyme
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
+/*
+    this component represents a list of trades which have occured in this market.
+    it expects `trades` to be a sorted list of objects representing trades
+*/
+
 class TradeList extends PolymerElement {
 
     static get properties() {
@@ -32,7 +37,7 @@ class TradeList extends PolymerElement {
 
             <div id="container">
                 <template is="dom-repeat" items="{{trades}}">
-                    <div>$[[item.timestamp]]</div>
+                    <div>[[item.timestamp]]</div>
                 </template>
             </div>
         `;

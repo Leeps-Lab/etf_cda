@@ -1,5 +1,11 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 
+/*
+    this component contains displays of the player's cash and asset allocations, and has inputs
+    which allow the player to enter orders. when an order is entered, 
+    this component emits an 'order-entered' event.
+*/
+
 class OrderEnterWidget extends PolymerElement {
 
     static get properties() {
@@ -65,6 +71,7 @@ class OrderEnterWidget extends PolymerElement {
             price: price,
             volume: volume,
             is_bid: is_bid,
+            // we're only doing single asset for now, so hardcode the asset name to A
             asset_name: 'A',
         }
         this.dispatchEvent(new CustomEvent('order-entered', {detail: order}));

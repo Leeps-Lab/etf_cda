@@ -1,11 +1,17 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
+/*
+    this component is a message box which displays either info messages or error messages.
+    call either the `info` or `error` method with a message to add a message to the list.
+    the box always stays scrolled to the bottom unless the player has scrolled the message box up at all
+*/
+
 class EventLog extends PolymerElement {
 
     static get properties() {
         return {
-            // the max number of entries which will be shown
+            // if set, the max number of entries shown will be limited to this number
             maxEntries: Number,
             _entries: {
                 type: Array,

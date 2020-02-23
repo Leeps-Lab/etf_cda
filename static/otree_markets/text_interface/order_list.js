@@ -2,6 +2,13 @@ import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polyme
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
+/*
+    this component represents a list of orders in the market. it expects
+    `orders` to be an appropriately sorted list of order objects.
+    additionally, it adds a red X to this player's orders and emits an 'order-canceled' event
+    when the X is clicked
+*/
+
 class OrderList extends PolymerElement {
 
     static get properties() {

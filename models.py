@@ -72,7 +72,6 @@ class Group(RedwoodGroup):
             validate.validate_enter(msg['payload'])
             self._handle_enter(msg['payload'])
         elif msg['type'] == 'cancel':
-            print(msg['payload'])
             validate.validate_cancel(msg['payload'])
             self._handle_cancel(msg['payload'], event.participant.code)
         else:

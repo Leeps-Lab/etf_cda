@@ -7,6 +7,11 @@ import './order_enter_widget.js';
 import './simple_modal.js';
 import './event_log.js';
 
+/*
+    this component is the main entry point for the text interface frontend. it maintains the market state in
+    the `bids`, `asks` and `trades` array properties and coordinates communication with the backend
+*/
+
 class TextInterface extends PolymerElement {
 
     static get properties() {
@@ -125,6 +130,8 @@ class TextInterface extends PolymerElement {
         };
     }
 
+    // main entry point for inbound messages. dispatches messages
+    // to the appropriate handler
     _on_message(event) {
         const msg = event.detail.payload;
         const handler = this.message_handlers[msg.type];
@@ -134,6 +141,7 @@ class TextInterface extends PolymerElement {
         handler.call(this, msg.payload);
     }
 
+    // handle an incoming order entry confirmation
     _handle_confirm_enter(msg) {
         const order = {
             timestamp: msg.timestamp,
@@ -149,9 +157,9 @@ class TextInterface extends PolymerElement {
             this._insert_ask(order);
     }
 
+    // compare two order objects. sort first by price, then by timestamp
+    // return a positive or negative number a la c strcmp
     _compare_orders(o1, o2) {
-        // compare two order objects. sort first by price, then by timestamp
-        // return a positive or negative number a la c strcmp
         if (o1.price == o2.price)
             // sort by descending timestamp
             return -(o1.timestamp - o2.timestamp);
@@ -159,6 +167,7 @@ class TextInterface extends PolymerElement {
             return o1.price - o2.price;
     }
 
+    // insert an order into the bids array in descending order
     _insert_bid(order) {
         let i = 0;
         for (; i < this.bids.length; i++) {
@@ -168,6 +177,7 @@ class TextInterface extends PolymerElement {
         this.splice('bids', i, 0, order);
     }
 
+    // insert an ask into the asks array in ascending order
     _insert_ask(order) {
         let i = 0;
         for (; i < this.asks.length; i++) {
@@ -177,10 +187,12 @@ class TextInterface extends PolymerElement {
         this.splice('asks', i, 0, order);
     }
 
+    // triggered when this player enters an order
+    // sends an order enter message to the backend
     _order_entered(event) {
         const order = event.detail;
-        if (isNaN(order.price)) {
-            this.$.log.error('Invalid price entered');
+        if (isNaN(order.price) || isNaN(order.volume)) {
+            this.$.log.error('Invalid order entered');
             return;
         }
         this.$.chan.send({
@@ -195,6 +207,8 @@ class TextInterface extends PolymerElement {
         });
     }
 
+    // triggered when this player cancels an order
+    // sends an order cancel message to the backend
     _order_canceled(event) {
         const order = event.detail;
         const is_bid = event.target.dataset.isBid == 'true';
@@ -218,42 +232,50 @@ class TextInterface extends PolymerElement {
         this.$.modal.show();
     }
 
+    // handle an incoming trade confirmation
     _handle_confirm_trade(msg) {
         const taking_order = msg.taking_order;
+        // copy this player's cash and assets so when we change them it only triggers one update
         let new_cash = this.cash;
         let new_assets = this.get('assets');
+        // iterate through making orders from this trade. if a making order is yours or the taking order is yours,
+        // update your cash and assets appropriately
         for (const making_order of msg.making_orders) {
             if (making_order.is_bid) {
                 if (making_order.pcode == this.pcode) {
                     this.$.log.info(`You bought ${making_order.traded_volume} units of asset ${msg.asset_name}`);
-                    this.cash -= making_order.price * making_order.traded_volume;
-                    this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) + 1);
+                    new_cash -= making_order.price * making_order.traded_volume;
+                    new_assets[msg.asset_name] += making_order.traded_volume;
                 }
                 if (taking_order.pcode == this.pcode) {
                     new_cash += making_order.price * making_order.traded_volume;
-                    new_assets[msg.asset_name]--;
+                    new_assets[msg.asset_name] -= making_order.traded_volume;
                 }
             }
             else {
                 if (making_order.pcode == this.pcode) {
                     this.$.log.info(`You sold ${making_order.traded_volume} units of asset ${msg.asset_name}`);
-                    this.cash += making_order.price * making_order.traded_volume;
-                    this.set(['assets', msg.asset_name], this.get(['assets', msg.asset_name]) - 1);
+                    new_cash += making_order.price * making_order.traded_volume;
+                    new_assets[msg.asset_name] -= making_order.traded_volume;
                 }
                 if (taking_order.pcode == this.pcode) {
-                    new_cash += making_order.price * making_order.traded_volume;
-                    new_assets[msg.asset_name]--;
+                    new_cash -= making_order.price * making_order.traded_volume;
+                    new_assets[msg.asset_name] += making_order.traded_volume;
                 }
             }
             this._remove_order(making_order.order_id, making_order.is_bid)
         }
         if (taking_order.pcode == this.pcode) {
             this.$.log.info(`You ${taking_order.is_bid ? 'bought' : 'sold'} ${taking_order.traded_volume} units of asset ${msg.asset_name}`)
+        }
+        // only update cash/assets if necessary
+        if (this.cash != new_cash) {
             this.cash = new_cash;
             this.set('assets', new_assets);
         }
         this._remove_order(taking_order.order_id, taking_order.is_bid)
 
+        // make a new trade object and sorted-ly insert it into the trades list
         const trade = {
             timestamp: msg.timestamp,
             asset_name: msg.asset_name,
@@ -267,6 +289,7 @@ class TextInterface extends PolymerElement {
         this.splice('trades', i, 0, trade);
     }
 
+    // handle an incoming cancel confirmation message
     _handle_confirm_cancel(msg) {
         if (msg.pcode == this.pcode) {
             this.$.log.info(`You canceled your ${msg.is_bid ? 'bid' : 'ask'}`);
@@ -274,6 +297,7 @@ class TextInterface extends PolymerElement {
         this._remove_order(msg.order_id, msg.is_bid)
     }
 
+    // remove an order from either the bids list or the asks list
     _remove_order(order_id, is_bid) {
         const order_store_name = is_bid ? 'bids' : 'asks';
         const order_store = this.get(order_store_name);
@@ -286,6 +310,7 @@ class TextInterface extends PolymerElement {
         this.splice(order_store_name, i, 1);
     }
 
+    // handle an incomming error message
     _handle_error(msg) {
         if (msg.pcode == this.pcode) 
             this.$.log.error(msg['message'])
