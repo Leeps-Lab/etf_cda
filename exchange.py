@@ -2,6 +2,7 @@ from django.db import models
 from itertools import chain
 
 class Exchange(models.Model):
+    '''this model represents a continuous double auction exchange'''
 
     # Exchange has additional fields 'trades' and 'orders'
     # these are related names from ForeignKey fields on Trade and Order
@@ -53,6 +54,7 @@ class Exchange(models.Model):
             self._handle_insert_ask(order)
     
     def cancel_order(self, is_bid, order_id):
+        '''cancel an already entered order'''
         orders = self._get_bids_qset() if is_bid else self._get_asks_qset()
         canceled_order = orders.get(id=order_id)
         canceled_order.active = False
@@ -65,6 +67,7 @@ class Exchange(models.Model):
         )
     
     def _handle_insert_bid(self, bid_order):
+        '''handle a bid being inserted into the order book, transacting if necessary'''
         # if this order isn't aggressive enough to transact with the best ask, just enter it
         best_ask = self._get_best_ask()
         if not best_ask or bid_order.price < best_ask.price:
@@ -95,6 +98,7 @@ class Exchange(models.Model):
         self._send_trade_confirmation(trade)
     
     def _handle_insert_ask(self, ask_order):
+        '''handle an ask being inserted into the order book, transacting if necessary'''
         # if this order isn't aggressive enough to transact with the best bid, just enter it
         best_bid = self._get_best_bid()
         if not best_bid or ask_order.price > best_bid.price:
@@ -162,8 +166,8 @@ class Exchange(models.Model):
         return '\n'.join(' ' + str(e) for e in chain(self._get_bids_qset(), self._get_asks_qset()))
 
 
-# this model represents a single order in an exchange
 class Order(models.Model):
+    '''this model represents a single order in an exchange'''
 
     class Meta:
         app_label = 'otree_markets'
@@ -217,8 +221,8 @@ class Order(models.Model):
         )
 
 
-# this model represents a single trade
 class Trade(models.Model):
+    '''this model represents a single trade'''
 
     class Meta:
         app_label = 'otree_markets'

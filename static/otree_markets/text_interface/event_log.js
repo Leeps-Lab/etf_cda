@@ -56,6 +56,19 @@ class EventLog extends PolymerElement {
         `;
     }
 
+    ready() {
+        super.ready();
+        // check if log contents are stored in session storage
+        const prev_entries = sessionStorage.getItem('event-log-history');
+        if (prev_entries !== null) {
+            this.set('_entries', JSON.parse(prev_entries));
+        }
+        // write log contents into session storage on page unload
+        window.addEventListener('unload', () => {
+            sessionStorage.setItem('event-log-history', JSON.stringify(this.get('_entries')));
+        });
+    }
+
     add(text, type) {
         this.push('_entries', {
             type: type,

@@ -193,7 +193,7 @@ class Player(BasePlayer):
         self.save()
 
     # jsonfield is broken, it needs this special hack to get saved correctly
-    # for more info see https://github.com/Leeps-Lab/otree-redwood/blob/master/otree_redwood/models.py#L160
+    # for more info see https://github.com/Leeps-Lab/otree-redwood/blob/master/otree_redwood/models.py#L167
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.pk is not None:

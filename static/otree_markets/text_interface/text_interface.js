@@ -236,31 +236,31 @@ class TextInterface extends PolymerElement {
     _handle_confirm_trade(msg) {
         const taking_order = msg.taking_order;
         // copy this player's cash and assets so when we change them it only triggers one update
-        let new_cash = this.cash;
-        let new_assets = this.get('assets');
+        let new_cash   = this.cash;
+        let new_assets = this.get(['assets', msg.asset_name]);
         // iterate through making orders from this trade. if a making order is yours or the taking order is yours,
         // update your cash and assets appropriately
         for (const making_order of msg.making_orders) {
             if (making_order.is_bid) {
                 if (making_order.pcode == this.pcode) {
                     this.$.log.info(`You bought ${making_order.traded_volume} units of asset ${msg.asset_name}`);
-                    new_cash -= making_order.price * making_order.traded_volume;
-                    new_assets[msg.asset_name] += making_order.traded_volume;
+                    new_cash   -= making_order.price * making_order.traded_volume;
+                    new_assets += making_order.traded_volume;
                 }
                 if (taking_order.pcode == this.pcode) {
-                    new_cash += making_order.price * making_order.traded_volume;
-                    new_assets[msg.asset_name] -= making_order.traded_volume;
+                    new_cash   += making_order.price * making_order.traded_volume;
+                    new_assets -= making_order.traded_volume;
                 }
             }
             else {
                 if (making_order.pcode == this.pcode) {
                     this.$.log.info(`You sold ${making_order.traded_volume} units of asset ${msg.asset_name}`);
-                    new_cash += making_order.price * making_order.traded_volume;
-                    new_assets[msg.asset_name] -= making_order.traded_volume;
+                    new_cash   += making_order.price * making_order.traded_volume;
+                    new_assets -= making_order.traded_volume;
                 }
                 if (taking_order.pcode == this.pcode) {
-                    new_cash -= making_order.price * making_order.traded_volume;
-                    new_assets[msg.asset_name] += making_order.traded_volume;
+                    new_cash   -= making_order.price * making_order.traded_volume;
+                    new_assets += making_order.traded_volume;
                 }
             }
             this._remove_order(making_order.order_id, making_order.is_bid)
@@ -271,7 +271,7 @@ class TextInterface extends PolymerElement {
         // only update cash/assets if necessary
         if (this.cash != new_cash) {
             this.cash = new_cash;
-            this.set('assets', new_assets);
+            this.set(['assets', msg.asset_name], new_assets);
         }
         this._remove_order(taking_order.order_id, taking_order.is_bid)
 
