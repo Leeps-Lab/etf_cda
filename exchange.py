@@ -59,12 +59,7 @@ class Exchange(models.Model):
         canceled_order = orders.get(id=order_id)
         canceled_order.active = False
         canceled_order.save()
-        self.group.confirm_cancel(
-            order_id   = order_id,
-            is_bid     = is_bid,
-            asset_name = self.asset_name,
-            pcode      = canceled_order.pcode
-        )
+        self.group.confirm_cancel(canceled_order.as_dict())
     
     def _handle_insert_bid(self, bid_order):
         '''handle a bid being inserted into the order book, transacting if necessary'''
@@ -141,15 +136,7 @@ class Exchange(models.Model):
     
     def _send_enter_confirmation(self, order):
         '''send an order enter confirmation to the group'''
-        self.group.confirm_enter(
-            timestamp  = order.timestamp.timestamp(),
-            price      = order.price,
-            volume     = order.volume,
-            is_bid     = order.is_bid,
-            pcode      = order.pcode,
-            asset_name = self.asset_name,
-            order_id   = order.id
-        )
+        self.group.confirm_enter(order.as_dict())
 
     def _send_trade_confirmation(self, trade):
         '''send a trade confirmation to the group'''

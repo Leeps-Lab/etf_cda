@@ -1,11 +1,12 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
-import './order_list.js';
-import './trade_list.js';
-import './order_enter_widget.js';
-import './simple_modal.js';
-import './event_log.js';
+import '../widgets/order_list.js';
+import '../widgets/trade_list.js';
+import '../widgets/order_enter_widget.js';
+import '../widgets/simple_modal.js';
+import '../widgets/event_log.js';
+import '../widgets/order_book.js'
 
 /*
     this component is the main entry point for the text interface frontend. it maintains the market state in
@@ -59,7 +60,6 @@ class TextInterface extends PolymerElement {
             <simple-modal
                 id="modal"
             ></simple-modal>
-
             <redwood-channel
                 id="chan"
                 channel="chan"
@@ -68,6 +68,14 @@ class TextInterface extends PolymerElement {
             <otree-constants
                 id="constants"
             ></otree-constants>
+            <order-book
+                id="order_book"
+                bids="{{bids}}"
+                asks="{{asks}}"
+                trades="{{trades}}"
+                assets="{{assets}}"
+                cash="{{cash}}"
+            ></order-book>
 
             <div class="container" id="main-container">
                 <div>
@@ -118,7 +126,7 @@ class TextInterface extends PolymerElement {
 
     ready() {
         super.ready();
-        // just a nice convenience
+
         this.pcode = this.$.constants.participantCode;
 
         // maps incoming message types to their appropriate handler
@@ -143,48 +151,8 @@ class TextInterface extends PolymerElement {
 
     // handle an incoming order entry confirmation
     _handle_confirm_enter(msg) {
-        const order = {
-            timestamp: msg.timestamp,
-            price: msg.price,
-            volume: msg.volume,
-            pcode: msg.pcode,
-            asset_name: msg.asset_name,
-            order_id: msg.order_id,
-        };
-        if (msg.is_bid)
-            this._insert_bid(order);
-        else
-            this._insert_ask(order);
-    }
-
-    // compare two order objects. sort first by price, then by timestamp
-    // return a positive or negative number a la c strcmp
-    _compare_orders(o1, o2) {
-        if (o1.price == o2.price)
-            // sort by descending timestamp
-            return -(o1.timestamp - o2.timestamp);
-        else
-            return o1.price - o2.price;
-    }
-
-    // insert an order into the bids array in descending order
-    _insert_bid(order) {
-        let i = 0;
-        for (; i < this.bids.length; i++) {
-            if (this._compare_orders(this.bids[i], order) < 0)
-                break;
-        }
-        this.splice('bids', i, 0, order);
-    }
-
-    // insert an ask into the asks array in ascending order
-    _insert_ask(order) {
-        let i = 0;
-        for (; i < this.asks.length; i++) {
-            if (this._compare_orders(this.asks[i], order) > 0)
-                break;
-        }
-        this.splice('asks', i, 0, order);
+        const order = msg;
+        this.$.order_book.insert_order(order);
     }
 
     // triggered when this player enters an order
@@ -234,80 +202,20 @@ class TextInterface extends PolymerElement {
 
     // handle an incoming trade confirmation
     _handle_confirm_trade(msg) {
-        const taking_order = msg.taking_order;
-        // copy this player's cash and assets so when we change them it only triggers one update
-        let new_cash   = this.cash;
-        let new_assets = this.get(['assets', msg.asset_name]);
-        // iterate through making orders from this trade. if a making order is yours or the taking order is yours,
-        // update your cash and assets appropriately
-        for (const making_order of msg.making_orders) {
-            if (making_order.is_bid) {
-                if (making_order.pcode == this.pcode) {
-                    this.$.log.info(`You bought ${making_order.traded_volume} units of asset ${msg.asset_name}`);
-                    new_cash   -= making_order.price * making_order.traded_volume;
-                    new_assets += making_order.traded_volume;
-                }
-                if (taking_order.pcode == this.pcode) {
-                    new_cash   += making_order.price * making_order.traded_volume;
-                    new_assets -= making_order.traded_volume;
-                }
-            }
-            else {
-                if (making_order.pcode == this.pcode) {
-                    this.$.log.info(`You sold ${making_order.traded_volume} units of asset ${msg.asset_name}`);
-                    new_cash   += making_order.price * making_order.traded_volume;
-                    new_assets -= making_order.traded_volume;
-                }
-                if (taking_order.pcode == this.pcode) {
-                    new_cash   -= making_order.price * making_order.traded_volume;
-                    new_assets += making_order.traded_volume;
-                }
-            }
-            this._remove_order(making_order.order_id, making_order.is_bid)
+        const my_trades = this.$.order_book.handle_trade(msg.making_orders, msg.taking_order, msg.asset_name, msg.timestamp);
+        console.log(my_trades)
+        for (let order of my_trades) {
+            this.$.log.info(`You ${order.is_bid ? 'bought' : 'sold'} ${order.traded_volume} ${order.traded_volume == 1 ? 'unit' : 'units'} of asset ${order.asset_name}`);
         }
-        if (taking_order.pcode == this.pcode) {
-            this.$.log.info(`You ${taking_order.is_bid ? 'bought' : 'sold'} ${taking_order.traded_volume} units of asset ${msg.asset_name}`)
-        }
-        // only update cash/assets if necessary
-        if (this.cash != new_cash) {
-            this.cash = new_cash;
-            this.set(['assets', msg.asset_name], new_assets);
-        }
-        this._remove_order(taking_order.order_id, taking_order.is_bid)
-
-        // make a new trade object and sorted-ly insert it into the trades list
-        const trade = {
-            timestamp: msg.timestamp,
-            asset_name: msg.asset_name,
-            taking_order: taking_order,
-            making_orders: msg.making_orders,
-        }
-        let i;
-        for (; i < this.trades.length; i++)
-            if (this.trades[i].timestamp > msg.timestamp)
-                break;
-        this.splice('trades', i, 0, trade);
     }
 
     // handle an incoming cancel confirmation message
     _handle_confirm_cancel(msg) {
-        if (msg.pcode == this.pcode) {
+        const order = msg;
+        this.$.order_book.remove_order(order);
+        if (order.pcode == this.pcode) {
             this.$.log.info(`You canceled your ${msg.is_bid ? 'bid' : 'ask'}`);
         }
-        this._remove_order(msg.order_id, msg.is_bid)
-    }
-
-    // remove an order from either the bids list or the asks list
-    _remove_order(order_id, is_bid) {
-        const order_store_name = is_bid ? 'bids' : 'asks';
-        const order_store = this.get(order_store_name);
-        let i = 0;
-        for (; i < order_store.length; i++)
-            if (order_store[i].order_id == order_id)
-                break;
-        if (i >= order_store.length)
-            return;
-        this.splice(order_store_name, i, 1);
     }
 
     // handle an incomming error message

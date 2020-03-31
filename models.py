@@ -108,20 +108,12 @@ class Group(RedwoodGroup):
             cancel_msg['order_id'],
         )
 
-    def confirm_enter(self, timestamp, price, volume, is_bid, pcode, asset_name, order_id):
+    def confirm_enter(self, order_dict):
         '''send an order entry confirmation to the frontend. this function is called
         by the exchange when an order is successfully entered'''
         confirm_msg = {
             'type': 'confirm_enter',
-            'payload': {
-                'timestamp': timestamp,
-                'price': price,
-                'volume': volume,
-                'is_bid': is_bid,
-                'pcode': pcode,
-                'asset_name': asset_name,
-                'order_id': order_id,
-            }
+            'payload': order_dict,
         }
         self.send('chan', confirm_msg)
 
@@ -157,17 +149,12 @@ class Group(RedwoodGroup):
         }
         self.send('chan', confirm_msg)
     
-    def confirm_cancel(self, order_id, is_bid, asset_name, pcode):
+    def confirm_cancel(self, order_dict):
         '''send an order cancel confirmation to the frontend. this function is called
         by the exchange when an order is successfully canceled'''
         confirm_msg = {
             'type': 'confirm_cancel',
-            'payload': {
-                'order_id': order_id,
-                'is_bid': is_bid,
-                'asset_name': asset_name,
-                'pcode': pcode,
-            }
+            'payload': order_dict,
         }
         self.send('chan', confirm_msg)
     

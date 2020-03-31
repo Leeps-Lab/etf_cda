@@ -2,6 +2,18 @@ messaging spec:
 
 every message has a type field and a payload field. the type determines the structure of the payload.
 
+fields of type `order` have the following dict structure:
+`order` := {
+    timestamp: `float`,
+    price: `int`,
+    volume: `int`,
+    is_bid: `boolean`,
+    pcode: `string`,
+    traded_volume: `int`,
+    order_id: `int`,
+    asset_name: `string`,
+}
+
 inbound messages (frontend -> backend):
 
 # enter a regular limit order
@@ -33,14 +45,7 @@ outbound messages (backend -> frontend):
 # confirm that a new order was entered
 {
     type: 'confirm_enter',
-    payload: {
-        timestamp: `float`,
-        price: `int`,
-        is_bid: `boolean`,
-        pcode: `string`,
-        asset_name: `string`,
-        order_id: `int`,
-    }
+    payload: `order`,
 }
 
 # confirm that a trade occurred
@@ -53,25 +58,9 @@ outbound messages (backend -> frontend):
     payload: {
         timestamp: `float`,
         asset_name: `string`,
-        taking_order: {
-            timestamp: `float`,
-            price: `int`,
-            volume: `int`,
-            is_bid: `boolean`,
-            pcode: `string`,
-            traded_volume: `int`,
-            order_id: `int`,
-        },
+        taking_order: `order`,
         making_orders: [
-            {
-                timestamp: `float`,
-                price: `int`,
-                volume: `int`,
-                is_bid: `boolean`,
-                pcode: `string`,
-                traded_volume: `int`,
-                order_id: `int`,
-            },
+            `order`,
             ...
         ]
     }
@@ -80,12 +69,7 @@ outbound messages (backend -> frontend):
 # confirm that an order was canceled
 {
     type: 'confirm_cancel',
-    payload: {
-        order_id: `int`,
-        is_bid: `boolean`,
-        asset_name: `string`,
-        pcode: `string`,
-    }
+    payload: `order`
 }
 
 # report some error to the frontend
