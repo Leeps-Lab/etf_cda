@@ -23,6 +23,7 @@ class TradeList extends PolymerElement {
                     width: 100%;
                     height: 100%;
                     overflow-y: auto;
+                    box-sizing: border-box;
                 }
                 #container div {
                     border: 1px solid black;

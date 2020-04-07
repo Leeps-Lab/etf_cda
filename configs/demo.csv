@@ -1,2 +1,2 @@
 period_length,num_assets,asset_endowments,cash_endowment
-5,1,100,1000
+5,4,100 100 100 100,1000

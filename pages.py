@@ -4,7 +4,7 @@ from ._builtin import Page, WaitPage
 from .models import Constants
 import json
 
-class TextInterface(Page):
+class BaseMarketPage(Page):
 
     def vars_for_template(self):
         bids = []
@@ -34,6 +34,13 @@ class TextInterface(Page):
         return self.round_number <= self.subsession.config.num_rounds
 
 
+class SingleAssetTextInterface(BaseMarketPage):
+    pass
+
+
+class MultipleAssetTextInterface(BaseMarketPage):
+    pass
+
 class ResultsWaitPage(WaitPage):
 
     def is_displayed(self):
@@ -46,7 +53,7 @@ class Results(Page):
         return self.round_number <= self.subsession.config.num_rounds
 
 page_sequence = [
-    TextInterface,
+    MultipleAssetTextInterface,
     ResultsWaitPage,
     Results
 ]

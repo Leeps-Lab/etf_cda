@@ -12,7 +12,8 @@ class Constants(BaseConstants):
     players_per_group = None
     num_rounds = 99 
 
-    asset_names = ['A', 'B', 'C']
+    # list of capital letters A..Z
+    asset_names = [chr(i) for i in range(65, 91)]
 
     # the columns of the config CSV and their types
     # this dict is used by ConfigManager
@@ -32,9 +33,10 @@ class Subsession(BaseSubsession):
 
     # get a dict mapping asset names to their initial endowments
     def _get_asset_endowments(self):
-        names = Constants.asset_names[:self.config.num_assets]
-        endowments = map(int, self.config.asset_endowments.split())
-        return dict(zip(names, endowments))
+        endowments = list(map(int, self.config.asset_endowments.split()))
+        if len(endowments) != self.config.num_assets:
+            raise ValueError('invalid config: num_assets and asset_names must agree')
+        return dict(zip(Constants.asset_names, endowments))
 
     def creating_session(self):
         if self.round_number > self.config.num_rounds:

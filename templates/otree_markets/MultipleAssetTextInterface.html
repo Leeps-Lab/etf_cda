@@ -1,0 +1,29 @@
+{% extends "otree_redwood/Page.html" %}
+{% load staticfiles otree %}
+
+{% block title %}
+Market
+{% endblock %}
+
+{% block scripts %}
+    <script type="module" src="/static/otree_markets/multiple_asset_text_interface/multiple_asset_text_interface.js"></script>
+{% endblock %}
+
+{% block content %}
+
+    <!-- hide otree title tag to make more room for interface -->
+    <style>
+        h2.otree-title.page-header {
+            display: none;
+        }
+    </style>
+
+    <multiple-asset-text-interface
+        bids="{{ bids }}"
+        asks="{{ asks }}"
+        assets="{{ assets }}"
+        cash="{{ cash }}"
+        trades="{{ trades }}"
+    ></multiple-asset-text-interface>
+
+{% endblock %}

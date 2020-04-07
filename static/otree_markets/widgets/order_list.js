@@ -25,6 +25,7 @@ class OrderList extends PolymerElement {
                     width: 100%;
                     height: 100%;
                     overflow-y: auto;
+                    box-sizing: border-box;
                 }
                 #container > div {
                     position: relative;

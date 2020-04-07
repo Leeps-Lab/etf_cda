@@ -1,19 +1,18 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
+import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
-import '../widgets/order_list.js';
-import '../widgets/trade_list.js';
-import '../widgets/order_enter_widget.js';
 import '../widgets/simple_modal.js';
 import '../widgets/event_log.js';
 import '../widgets/order_book.js'
+import './asset_cell.js'
 
 /*
     this component is the main entry point for the text interface frontend. it maintains the market state in
     the `bids`, `asks` and `trades` array properties and coordinates communication with the backend
 */
 
-class TextInterface extends PolymerElement {
+class MultipleAssetTextInterface extends PolymerElement {
 
     static get properties() {
         return {
@@ -28,32 +27,23 @@ class TextInterface extends PolymerElement {
     static get template() {
         return html`
             <style>
+                .full-width {
+                    width: 100vw;
+                    margin-left: 50%;
+                    transform: translateX(-50%);
+                }
                 .container {
+                    width: 100%;
+                    margin-top: 20px;
                     display: flex;
+                    flex-wrap: wrap;
                     justify-content: space-evenly;
                 }
                 .container > div {
-                    display: flex;
-                    flex-direction: column;
-                }
-                .flex-fill {
-                    flex: 1 0 0;
-                    min-height: 0;
-                }
-
-                #main-container {
-                    height: 40vh;
-                    margin-bottom: 10px;
-                }
-                #main-container > div {
-                    flex: 0 1 20%;
-                }
-
-                #log-container {
-                    height: 20vh;
-                }
-                #log-container > div {
-                    flex: 0 1 90%;
+                    flex: 0 0 48%;
+                    margin-bottom: 20px;
+                    height: 30vh;
+                    border: 1px solid black;
                 }
             </style>
 
@@ -77,48 +67,17 @@ class TextInterface extends PolymerElement {
                 cash="{{cash}}"
             ></order-book>
 
-            <div class="container" id="main-container">
-                <div>
-                    <h3>Bids</h3>
-                    <order-list
-                        data-is-bid="true"
-                        class="flex-fill"
-                        orders="[[bids]]"
-                        on-order-canceled="_order_canceled"
-                    ></order-list>
-                </div>
-                <div>
-                    <h3>Asks</h3>
-                    <order-list
-                        data-is-bid="false"
-                        class="flex-fill"
-                        orders="[[asks]]"
-                        on-order-canceled="_order_canceled"
-                    ></order-list>
-                </div>
-                <div>
-                    <h3>Trades</h3>
-                    <trade-list
-                        class="flex-fill"
-                        trades="[[trades]]"
-                    ></trade-list>
-                </div>
-                <div>
-                    <order-enter-widget
-                        class="flex-fill"
-                        cash="[[cash]]"
-                        assets="[[assets]]"
-                        on-order-entered="_order_entered"
-                    ></order-enter-widget>
-                </div>
-            </div>
-            <div class="container" id="log-container">
-                <div>
-                    <event-log
-                        class="flex-fill"
-                        id="log"
-                        max-entries=100
-                    ></event-log>
+            <div class="full-width">
+                <div class="container">
+                    <template is="dom-repeat" items="{{asset_names}}">
+                        <div>
+                            <asset-cell
+                                asset-name="[[item]]"
+                                bids="[[bids]]"
+                                asks="[[asks]]"
+                            ></asset-cell>
+                        </div>
+                    </template>
                 </div>
             </div>
         `;
@@ -128,6 +87,7 @@ class TextInterface extends PolymerElement {
         super.ready();
 
         this.pcode = this.$.constants.participantCode;
+        this.asset_names = Object.keys(this.assets);
 
         // maps incoming message types to their appropriate handler
         this.message_handlers = {
@@ -225,4 +185,4 @@ class TextInterface extends PolymerElement {
     }
 }
 
-window.customElements.define('text-interface', TextInterface);
+window.customElements.define('multiple-asset-text-interface', MultipleAssetTextInterface);

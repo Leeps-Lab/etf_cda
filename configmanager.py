@@ -1,32 +1,32 @@
 import csv
 import os
 
-_config_cache = {}
-_config_mtimes = {}
-
-# returns a list of dicts representing the config file at a path
-# caches results, checking for file changes to update cache
-def _get_config_from_path(config_file_path):
-    config_mtime = os.stat(os.path.abspath(config_file_path)).st_mtime
-    if config_file_path not in _config_cache or config_mtime > _config_mtimes[config_file_path]:
-        with open(config_file_path) as infile:
-            rows = list(csv.DictReader(infile))
-        _config_cache[config_file_path] = rows
-        _config_mtimes[config_file_path] = config_mtime
-    return _config_cache[config_file_path]
-
-
 # a utility to process and organize CSV config files
 # a ConfigManager is tied to a specific round number, so
 # one ConfigManager object should be created per subsession
 class ConfigManager():
+
+    config_cache = {}
+    config_mtimes = {}
+
+    # returns a list of dicts representing the config file at a path
+    # caches results, checking for file changes to update cache
+    @classmethod
+    def _get_config_from_path(cls, config_file_path):
+        config_mtime = os.stat(os.path.abspath(config_file_path)).st_mtime
+        if config_file_path not in cls.config_cache or config_mtime > cls.config_mtimes[config_file_path]:
+            with open(config_file_path) as infile:
+                rows = list(csv.DictReader(infile))
+            cls.config_cache[config_file_path] = rows
+            cls.config_mtimes[config_file_path] = config_mtime
+        return cls.config_cache[config_file_path]
 
     # config manager takes a path to a config csv, the current round number
     # and a dict mapping config field names to their type
     def __init__(self, config_file_path, round_number, fields_dict):
         self.round_number = round_number
 
-        rows = _get_config_from_path(config_file_path)
+        rows = self._get_config_from_path(config_file_path)
         
         self.num_rounds = len(rows)
         self.round_dict = {}

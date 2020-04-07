@@ -6,17 +6,17 @@
 {% endblock %}
 
 {% block scripts %}
-    <script type="module" src="/static/otree_markets/text_interface/text_interface.js"></script>
+    <script type="module" src="/static/otree_markets/single_asset_text_interface/single_asset_text_interface.js"></script>
 {% endblock %}
 
 {% block content %}
 
-    <text-interface
+    <single-asset-text-interface
         bids="{{ bids }}"
         asks="{{ asks }}"
         assets="{{ assets }}"
         cash="{{ cash }}"
         trades="{{ trades }}"
-    ></text-interface>
+    ></single-asset-text-interface>
 
 {% endblock %}
