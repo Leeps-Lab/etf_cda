@@ -14,6 +14,7 @@ class OrderList extends PolymerElement {
     static get properties() {
         return {
             orders: Array,
+            assetName: String,
         };
     }
 
@@ -56,7 +57,7 @@ class OrderList extends PolymerElement {
             ></otree-constants>
 
             <div id="container">
-                <template is="dom-repeat" items="{{orders}}">
+                <template is="dom-repeat" items="{{orders}}" filter="{{_getAssetFilterFunc(assetName)}}">
                     <div class$="[[_getOrderClass(item)]]">
                         <span>[[item.volume]]</span><span>@</span><span>$[[item.price]]</span>
                         <span class="cancel-button" on-click="_cancelOrder">&#9746;</span>
@@ -64,6 +65,15 @@ class OrderList extends PolymerElement {
                 </template>
             </div>
         `;
+    }
+
+    _getAssetFilterFunc(assetName) {
+        if(!assetName) {
+            return null;
+        }
+        return function(order) {
+            return order.asset_name == assetName;
+        }
     }
 
     _getOrderClass(order) {
@@ -75,7 +85,7 @@ class OrderList extends PolymerElement {
 
     _cancelOrder(event) {
         const order = event.model.item;
-        this.dispatchEvent(new CustomEvent('order-canceled', {detail: order}));
+        this.dispatchEvent(new CustomEvent('order-canceled', {detail: order, bubbles: true, composed: true}));
     }
 
 }

@@ -81,7 +81,6 @@ class SingleAssetTextInterface extends PolymerElement {
                 <div>
                     <h3>Bids</h3>
                     <order-list
-                        data-is-bid="true"
                         class="flex-fill"
                         orders="[[bids]]"
                         on-order-canceled="_order_canceled"
@@ -90,7 +89,6 @@ class SingleAssetTextInterface extends PolymerElement {
                 <div>
                     <h3>Asks</h3>
                     <order-list
-                        data-is-bid="false"
                         class="flex-fill"
                         orders="[[asks]]"
                         on-order-canceled="_order_canceled"
@@ -179,7 +177,6 @@ class SingleAssetTextInterface extends PolymerElement {
     // sends an order cancel message to the backend
     _order_canceled(event) {
         const order = event.detail;
-        const is_bid = event.target.dataset.isBid == 'true';
 
         this.$.modal.modal_text = 'Are you sure you want to remove this order?';
         this.$.modal.on_close_callback = (accepted) => {
@@ -188,13 +185,7 @@ class SingleAssetTextInterface extends PolymerElement {
 
             this.$.chan.send({
                 type: 'cancel',
-                payload: {
-                    price: order.price,
-                    pcode: order.pcode,
-                    order_id: order.order_id,
-                    asset_name: order.asset_name,
-                    is_bid: is_bid,
-                }
+                payload: order,
             });
         };
         this.$.modal.show();

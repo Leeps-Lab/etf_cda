@@ -23,7 +23,6 @@ class OrderBook extends PolymerElement {
 
     ready() {
         super.ready();
-
         this.pcode = this.$.constants.participantCode;
     }
 

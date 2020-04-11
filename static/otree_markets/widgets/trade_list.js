@@ -12,6 +12,7 @@ class TradeList extends PolymerElement {
     static get properties() {
         return {
             trades: Array,
+            assetName: String,
         };
     }
 
@@ -37,12 +38,22 @@ class TradeList extends PolymerElement {
             ></otree-constants>
 
             <div id="container">
-                <template is="dom-repeat" items="{{trades}}">
+                <template is="dom-repeat" items="{{trades}}" filter="{{_getAssetFilterFunc(assetName)}}">
                     <div>{{item.taking_order.traded_volume}}</div>
                 </template>
             </div>
         `;
     }
+
+    _getAssetFilterFunc(assetName) {
+        if(!assetName) {
+            return null;
+        }
+        return function(trade) {
+            return trade.asset_name == assetName;
+        }
+    }
+
 
 }
 

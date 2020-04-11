@@ -14,6 +14,7 @@ class AssetCell extends PolymerElement {
             assetName: String,
             bids: Array,
             asks: Array,
+            trades: Array,
         };
     }
 
@@ -77,17 +78,22 @@ class AssetCell extends PolymerElement {
                     <div>
                         <h5>Bids</h5>
                         <order-list
-                            orders="[[_filterOrders(bids, assetName)]]"
+                            asset-name="[[assetName]]"
+                            orders="[[bids]]"
                         ></order-list>
                     </div>
                     <div>
                         <h5>Trades</h5>
-                        <trade-list></trade-list>
+                        <trade-list
+                            asset-name="[[assetName]]"
+                            trades="[[trades]]"
+                        ></trade-list>
                     </div>
                     <div>
                         <h5>Asks</h5>
                         <order-list
-                            orders="[[_filterOrders(asks, assetName)]]"
+                            asset-name="[[assetName]]"
+                            orders="[[asks]]"
                         ></order-list>
                     </div>
                 </div>
@@ -95,20 +101,29 @@ class AssetCell extends PolymerElement {
                     <div>
                         <label for="bid_price">Price</label>
                         <input id="bid_price" type="number" min="0">
-                        <button type="button">Buy</button>
+                        <button type="button" on-click="_enter_order" value="bid">Buy</button>
                     </div>
                     <div>
                         <label for="ask_price">Price</label>
                         <input id="ask_price" type="number" min="0">
-                        <button type="button">Sell</button>
+                        <button type="button" on-click="_enter_order" value="ask">Sell</button>
                     </div>
                 </div>
             </div>
         `;
     }
 
-    _filterOrders(orders, assetName) {
-        return orders.filter(e => e.asset_name == assetName);
+    _enter_order(event) {
+        const is_bid = (event.target.value == 'bid');
+        const price = parseInt(this.$[is_bid ? 'bid_price' : 'ask_price'].value);
+        const order = {
+            price: price,
+            // unit volume
+            volume: 1,
+            is_bid: is_bid,
+            asset_name: this.assetName,
+        }
+        this.dispatchEvent(new CustomEvent('order-entered', {detail: order}));
     }
 
 }

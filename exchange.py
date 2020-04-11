@@ -56,7 +56,10 @@ class Exchange(models.Model):
     def cancel_order(self, is_bid, order_id):
         '''cancel an already entered order'''
         orders = self._get_bids_qset() if is_bid else self._get_asks_qset()
-        canceled_order = orders.get(id=order_id)
+        try:
+            canceled_order = orders.get(id=order_id)
+        except Order.DoesNotExist as e:
+            raise ValueError('order with id {} not found'.format(order_id)) from e
         canceled_order.active = False
         canceled_order.save()
         self.group.confirm_cancel(canceled_order.as_dict())

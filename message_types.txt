@@ -31,13 +31,7 @@ inbound messages (frontend -> backend):
 # cancel an order
 {
     type: 'cancel',
-    payload: {
-        price: `int`,
-        pcode: `string`,
-        order_id: `int`,
-        asset_name: `string`,
-        is_bid: `boolean`,
-    }
+    payload: `order`,
 }
 
 outbound messages (backend -> frontend):

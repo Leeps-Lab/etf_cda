@@ -75,10 +75,17 @@ class MultipleAssetTextInterface extends PolymerElement {
                                 asset-name="[[item]]"
                                 bids="[[bids]]"
                                 asks="[[asks]]"
+                                trades="[[trades]]"
+                                on-order-entered="_order_entered"
+                                on-order-canceled="_order_canceled"
                             ></asset-cell>
                         </div>
                     </template>
                 </div>
+                <event-log
+                    id="log"
+                    max-entries=100
+                ></event-log>
             </div>
         `;
     }
@@ -119,7 +126,7 @@ class MultipleAssetTextInterface extends PolymerElement {
     // sends an order enter message to the backend
     _order_entered(event) {
         const order = event.detail;
-        if (isNaN(order.price) || isNaN(order.volume)) {
+        if (isNaN(order.price)) {
             this.$.log.error('Invalid order entered');
             return;
         }
@@ -139,7 +146,6 @@ class MultipleAssetTextInterface extends PolymerElement {
     // sends an order cancel message to the backend
     _order_canceled(event) {
         const order = event.detail;
-        const is_bid = event.target.dataset.isBid == 'true';
 
         this.$.modal.modal_text = 'Are you sure you want to remove this order?';
         this.$.modal.on_close_callback = (accepted) => {
@@ -148,13 +154,7 @@ class MultipleAssetTextInterface extends PolymerElement {
 
             this.$.chan.send({
                 type: 'cancel',
-                payload: {
-                    price: order.price,
-                    pcode: order.pcode,
-                    order_id: order.order_id,
-                    asset_name: order.asset_name,
-                    is_bid: is_bid,
-                }
+                payload: order
             });
         };
         this.$.modal.show();
@@ -163,7 +163,6 @@ class MultipleAssetTextInterface extends PolymerElement {
     // handle an incoming trade confirmation
     _handle_confirm_trade(msg) {
         const my_trades = this.$.order_book.handle_trade(msg.making_orders, msg.taking_order, msg.asset_name, msg.timestamp);
-        console.log(my_trades)
         for (let order of my_trades) {
             this.$.log.info(`You ${order.is_bid ? 'bought' : 'sold'} ${order.traded_volume} ${order.traded_volume == 1 ? 'unit' : 'units'} of asset ${order.asset_name}`);
         }
