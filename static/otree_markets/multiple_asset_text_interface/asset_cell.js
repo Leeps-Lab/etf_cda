@@ -2,11 +2,6 @@ import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polyme
 import '../widgets/order_list.js';
 import '../widgets/trade_list.js';
 
-/*
-    this component is the main entry point for the text interface frontend. it maintains the market state in
-    the `bids`, `asks` and `trades` array properties and coordinates communication with the backend
-*/
-
 class AssetCell extends PolymerElement {
 
     static get properties() {
@@ -28,6 +23,7 @@ class AssetCell extends PolymerElement {
                     height: 100%;
                     display: flex;
                     flex-direction: column;
+                    border: 1px solid black;
                 }
                 h3, h5 {
                     margin: 0;
@@ -38,6 +34,7 @@ class AssetCell extends PolymerElement {
                     flex: 1;
                     display: flex;
                     padding: 0 2px 0 2px;
+                    min-height: 0;
                 }
                 .list > div {
                     display: flex;
@@ -48,6 +45,7 @@ class AssetCell extends PolymerElement {
                 }
                 .list > div > :last-child {
                     flex: 1;
+                    min-height: 0;
                 }
 
                 .buttons > div {

@@ -6,6 +6,7 @@ import '../widgets/simple_modal.js';
 import '../widgets/event_log.js';
 import '../widgets/order_book.js'
 import './asset_cell.js'
+import './asset_table.js'
 
 /*
     this component is the main entry point for the text interface frontend. it maintains the market state in
@@ -27,23 +28,37 @@ class MultipleAssetTextInterface extends PolymerElement {
     static get template() {
         return html`
             <style>
+                * {
+                    box-sizing: border-box;
+                }
                 .full-width {
                     width: 100vw;
                     margin-left: 50%;
                     transform: translateX(-50%);
                 }
-                .container {
+
+                .main-container {
                     width: 100%;
                     margin-top: 20px;
                     display: flex;
                     flex-wrap: wrap;
                     justify-content: space-evenly;
                 }
-                .container > div {
+                .main-container > div {
                     flex: 0 0 48%;
                     margin-bottom: 20px;
                     height: 30vh;
-                    border: 1px solid black;
+                }
+
+                .info-container {
+                    width: 100%;
+                    height: 30vh;
+                    display: flex;
+                    padding: 0 5px 0 5px;
+                }
+                .info-container > div {
+                    flex: 1;
+                    margin: 0 5px 0 5px;
                 }
             </style>
 
@@ -68,7 +83,7 @@ class MultipleAssetTextInterface extends PolymerElement {
             ></order-book>
 
             <div class="full-width">
-                <div class="container">
+                <div class="main-container">
                     <template is="dom-repeat" items="{{asset_names}}">
                         <div>
                             <asset-cell
@@ -82,10 +97,22 @@ class MultipleAssetTextInterface extends PolymerElement {
                         </div>
                     </template>
                 </div>
-                <event-log
-                    id="log"
-                    max-entries=100
-                ></event-log>
+                <div class="info-container">
+                    <div>
+                        <asset-table
+                            assets="[[assets]]"
+                            cash="[[cash]]"
+                            bids="[[bids]]"
+                            asks="[[asks]]"
+                        ></asset-table>
+                    </div>
+                    <div>
+                        <event-log
+                            id="log"
+                            max-entries=100
+                        ></event-log>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -164,7 +191,7 @@ class MultipleAssetTextInterface extends PolymerElement {
     _handle_confirm_trade(msg) {
         const my_trades = this.$.order_book.handle_trade(msg.making_orders, msg.taking_order, msg.asset_name, msg.timestamp);
         for (let order of my_trades) {
-            this.$.log.info(`You ${order.is_bid ? 'bought' : 'sold'} ${order.traded_volume} ${order.traded_volume == 1 ? 'unit' : 'units'} of asset ${order.asset_name}`);
+            this.$.log.info(`You ${order.is_bid ? 'bought' : 'sold'} asset ${order.asset_name} for $${order.price}`);
         }
     }
 
