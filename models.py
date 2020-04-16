@@ -76,6 +76,9 @@ class Group(RedwoodGroup):
         elif msg['type'] == 'cancel':
             validate.validate_cancel(msg['payload'])
             self._handle_cancel(msg['payload'], event.participant.code)
+        elif msg['type'] == 'accept_immediate':
+            validate.validate_accept_immediate(msg['payload'])
+            self._handle_accept_immediate(msg['payload'], event.participant.code)
         else:
             raise ValueError('invalid inbound message type: "{}"'.format(msg['type']))
 
@@ -98,16 +101,33 @@ class Group(RedwoodGroup):
             enter_msg['pcode'],
         )
     
-    def _handle_cancel(self, cancel_msg, sender_pcode):
+    def _handle_cancel(self, canceled_order, sender_pcode):
         '''handle a cancel message sent from the frontend'''
-        if cancel_msg['pcode'] != sender_pcode:
+        if canceled_order['pcode'] != sender_pcode:
             print('cancel rejected: players can\t cancel others\' orders')
             return
         
-        exchange = self.exchanges.get(asset_name=cancel_msg['asset_name'])
+        exchange = self.exchanges.get(asset_name=canceled_order['asset_name'])
         exchange.cancel_order(
-            cancel_msg['is_bid'],
-            cancel_msg['order_id'],
+            canceled_order['is_bid'],
+            canceled_order['order_id'],
+        )
+
+    def _handle_accept_immediate(self, accepted_order, sender_pcode):
+        '''handle an immediate accept message sent from the frontend'''
+        player = self._get_player(sender_pcode)
+        if accepted_order['is_bid'] and player.cash < accepted_order['price'] * accepted_order['volume']:
+            self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient cash')
+            return
+        if not accepted_order['is_bid'] and player.assets[accepted_order['asset_name']] < accepted_order['volume']:
+            self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient amount of asset {}'.format(accepted_order['asset_name']))
+            return
+
+        exchange = self.exchanges.get(asset_name=accepted_order['asset_name'])
+        exchange.accept_immediate(
+            accepted_order['is_bid'],
+            accepted_order['order_id'],
+            sender_pcode,
         )
 
     def confirm_enter(self, order_dict):

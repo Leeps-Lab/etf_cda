@@ -33,9 +33,8 @@ class OrderList extends PolymerElement {
                     border: 1px solid black;
                     text-align: center;
                     margin: 3px;
-                }
-                .my-order {
-                    background-color: lightgreen;
+                    cursor: default;
+                    user-select: none;
                 }
                 .cancel-button {
                     position: absolute;
@@ -58,13 +57,18 @@ class OrderList extends PolymerElement {
 
             <div id="container">
                 <template is="dom-repeat" items="{{orders}}" filter="{{_getAssetFilterFunc(assetName)}}">
-                    <div class$="[[_getOrderClass(item)]]">
-                        <span>[[item.volume]]</span><span>@</span><span>$[[item.price]]</span>
+                    <div on-dblclick="_acceptOrder" class$="[[_getOrderClass(item)]]">
+                        <span>$[[item.price]]</span>
                         <span class="cancel-button" on-click="_cancelOrder">&#9746;</span>
                     </div>
                 </template>
             </div>
         `;
+    }
+
+    ready() {
+        super.ready();
+        this.pcode = this.$.constants.participantCode;
     }
 
     _getAssetFilterFunc(assetName) {
@@ -77,7 +81,7 @@ class OrderList extends PolymerElement {
     }
 
     _getOrderClass(order) {
-        if (order.pcode == this.$.constants.participantCode)
+        if (order.pcode == this.pcode)
             return 'my-order';
         else
             return 'other-order';
@@ -86,6 +90,12 @@ class OrderList extends PolymerElement {
     _cancelOrder(event) {
         const order = event.model.item;
         this.dispatchEvent(new CustomEvent('order-canceled', {detail: order, bubbles: true, composed: true}));
+    }
+
+    _acceptOrder(event) {
+        const order = event.model.item;
+        if (order.pcode == this.pcode) return;
+        this.dispatchEvent(new CustomEvent('order-accepted', {detail: order, bubbles: true, composed: true}));
     }
 
 }

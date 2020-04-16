@@ -38,6 +38,13 @@ class Exchange(models.Model):
         '''get a queryset of all trades that have occurred in this exchange, ordered by timestamp'''
         return (self.trades.order_by('timestamp')
                            .prefetch_related('taking_order', 'making_orders'))
+    
+    def _get_order(self, is_bid, order_id):
+        orders = self._get_bids_qset() if is_bid else self._get_asks_qset()
+        try:
+            return orders.get(id=order_id)
+        except Order.DoesNotExist as e:
+            raise ValueError('order with id {} not found'.format(order_id)) from e
 
     def enter_order(self, price, volume, is_bid, pcode):
         '''enter a bid or ask into the exchange'''
@@ -55,14 +62,32 @@ class Exchange(models.Model):
     
     def cancel_order(self, is_bid, order_id):
         '''cancel an already entered order'''
-        orders = self._get_bids_qset() if is_bid else self._get_asks_qset()
-        try:
-            canceled_order = orders.get(id=order_id)
-        except Order.DoesNotExist as e:
-            raise ValueError('order with id {} not found'.format(order_id)) from e
+        canceled_order = self._get_order(is_bid, order_id)
         canceled_order.active = False
         canceled_order.save()
         self.group.confirm_cancel(canceled_order.as_dict())
+    
+    def accept_immediate(self, accepted_is_bid, accepted_order_id, taker_pcode):
+        '''create a new order and trade it with the order with id `order_id`'''
+        accepted_order = self._get_order(accepted_is_bid, accepted_order_id)
+
+        taking_order = self.orders.create(
+            active = False,
+            price  = accepted_order.price,
+            volume = accepted_order.volume,
+            is_bid = not accepted_is_bid,
+            pcode  = taker_pcode,
+            traded_volume = accepted_order.volume,
+        )
+
+        trade = self.trades.create(taking_order=taking_order)
+
+        accepted_order.active = False
+        accepted_order.making_trade = trade
+        accepted_order.traded_volume = accepted_order.volume
+        accepted_order.save()
+
+        self._send_trade_confirmation(trade)
     
     def _handle_insert_bid(self, bid_order):
         '''handle a bid being inserted into the order book, transacting if necessary'''

@@ -39,7 +39,7 @@ class TradeList extends PolymerElement {
 
             <div id="container">
                 <template is="dom-repeat" items="{{trades}}" filter="{{_getAssetFilterFunc(assetName)}}">
-                    <div>{{item.taking_order.traded_volume}}</div>
+                    <div><span>$</span>{{item.making_orders.0.price}}</div>
                 </template>
             </div>
         `;

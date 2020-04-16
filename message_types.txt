@@ -34,6 +34,12 @@ inbound messages (frontend -> backend):
     payload: `order`,
 }
 
+# accept another player's order directly
+{
+    type: 'accept_immediate',
+    payload: `order`,
+}
+
 outbound messages (backend -> frontend):
 
 # confirm that a new order was entered

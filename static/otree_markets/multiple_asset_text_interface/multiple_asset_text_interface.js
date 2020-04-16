@@ -93,6 +93,7 @@ class MultipleAssetTextInterface extends PolymerElement {
                                 trades="[[trades]]"
                                 on-order-entered="_order_entered"
                                 on-order-canceled="_order_canceled"
+                                on-order-accepted="_order_accepted"
                             ></asset-cell>
                         </div>
                     </template>
@@ -181,6 +182,22 @@ class MultipleAssetTextInterface extends PolymerElement {
 
             this.$.chan.send({
                 type: 'cancel',
+                payload: order
+            });
+        };
+        this.$.modal.show();
+    }
+
+    _order_accepted(event) {
+        const order = event.detail;
+
+        this.$.modal.modal_text = `Do you want to ${order.is_bid ? 'buy' : 'sell'} asset ${order.asset_name} for $${order.price}?`
+        this.$.modal.on_close_callback = (accepted) => {
+            if (!accepted)
+                return;
+
+            this.$.chan.send({
+                type: 'accept_immediate',
                 payload: order
             });
         };
