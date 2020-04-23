@@ -1,4 +1,5 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
+import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '../widgets/order_list.js';
 import '../widgets/trade_list.js';
 
@@ -70,6 +71,10 @@ class AssetCell extends PolymerElement {
                 }
             </style>
 
+            <otree-constants
+                id="constants"
+            ></otree-constants>
+
             <div class="main-container">
                 <h3>Asset [[assetName]]</h3>
                 <div class="list">
@@ -78,6 +83,7 @@ class AssetCell extends PolymerElement {
                         <order-list
                             asset-name="[[assetName]]"
                             orders="[[bids]]"
+                            display-format="[[orderDisplayFormat]]"
                         ></order-list>
                     </div>
                     <div>
@@ -85,6 +91,7 @@ class AssetCell extends PolymerElement {
                         <trade-list
                             asset-name="[[assetName]]"
                             trades="[[trades]]"
+                            display-format="[[tradeDisplayFormat]]"
                         ></trade-list>
                     </div>
                     <div>
@@ -92,6 +99,7 @@ class AssetCell extends PolymerElement {
                         <order-list
                             asset-name="[[assetName]]"
                             orders="[[asks]]"
+                            display-format="[[orderDisplayFormat]]"
                         ></order-list>
                     </div>
                 </div>
@@ -109,6 +117,25 @@ class AssetCell extends PolymerElement {
                 </div>
             </div>
         `;
+    }
+
+    ready() {
+        super.ready();
+        this.pcode = this.$.constants.participantCode;
+
+        this.orderDisplayFormat = order => `$${order.price}`;
+        this.tradeDisplayFormat = trade => {
+            const all_orders = trade.making_orders.concat([trade.taking_order]);
+            const bought = all_orders.some(o => o.pcode == this.pcode && o.is_bid);
+            const sold   = all_orders.some(o => o.pcode == this.pcode && !o.is_bid);
+
+            let buy_sell_indicator = '';
+            if (bought && sold) buy_sell_indicator = ' BS';
+            else if (bought)    buy_sell_indicator = ' B';
+            else if (sold)      buy_sell_indicator = ' S';
+
+            return `$${trade.making_orders[0].price}${buy_sell_indicator}`
+        };
     }
 
     _enter_order(event) {

@@ -6,8 +6,10 @@ class AssetTable extends PolymerElement {
 
     static get properties() {
         return {
-            cash: Number,
-            assets: Object,
+            settledAssets: Object,
+            availableAssets: Object,
+            settledCash: Number,
+            availableCash: Number,
             bids: Array,
             asks: Array,
         };
@@ -33,7 +35,7 @@ class AssetTable extends PolymerElement {
                 }
 
                 .table {
-                    width: 20em;
+                    width: 30em;
                     text-align: center;
                     margin-bottom: 20px;
                 }
@@ -57,22 +59,28 @@ class AssetTable extends PolymerElement {
                 <div class="table">
                     <div class="header">
                         <span>Asset</span>
-                        <span>Held</span>
+                        <span>Available</span>
+                        <span>Settled</span>
                         <span>Requested</span>
                         <span>Offered</span>
                     </div>
                     <template is="dom-repeat" items="{{asset_names}}">
                         <div>
                             <span>[[item]]</span>
-                            <span>[[_getHeldAsset(item, assets.*)]]</span>
-                            <span>[[_getRequestedAsset(item, requested_assets.*)]]</span>
-                            <span>[[_getOfferedAsset(item, offered_assets.*)]]</span>
+                            <span>[[_getHeldAsset(item, availableAssets.*)]]</span>
+                            <span>[[_getHeldAsset(item, settledAssets.*)]]</span>
+                            <span>[[_getTradedAsset(item, requested_assets.*)]]</span>
+                            <span>[[_getTradedAsset(item, offered_assets.*)]]</span>
                         </div>
                     </template>
                 </div>
                 <div>
-                    <span>Cash: </span>
-                    <span>[[cash]]</span>
+                    <span>Available Cash: </span>
+                    <span>$[[availableCash]]</span>
+                </div>
+                <div>
+                    <span>Settled Cash: </span>
+                    <span>$[[settledCash]]</span>
                 </div>
             </div>
         `;
@@ -81,7 +89,7 @@ class AssetTable extends PolymerElement {
     ready() {
         super.ready();
         this.pcode = this.$.constants.participantCode;
-        this.asset_names = Object.keys(this.assets);
+        this.asset_names = Object.keys(this.availableAssets);
 
         const requested = Object.fromEntries(this.asset_names.map(e => [e, 0]));
         for (let order of this.get('bids')) {
@@ -143,13 +151,8 @@ class AssetTable extends PolymerElement {
         return assets.base[asset_name];
     }
 
-    _getRequestedAsset(asset_name, requested_assets) {
-        const requested = requested_assets.base[asset_name];
-        return requested > 0 ? '+' + requested : '-';
-    }
-
-    _getOfferedAsset(asset_name, offered_assets) {
-        const offered = offered_assets.base[asset_name];
+    _getTradedAsset(asset_name, assets) {
+        const offered = assets.base[asset_name];
         return offered > 0 ? '-' + offered : '-';
     }
 }

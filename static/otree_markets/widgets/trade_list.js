@@ -1,5 +1,4 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
-import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
 /*
@@ -13,6 +12,12 @@ class TradeList extends PolymerElement {
         return {
             trades: Array,
             assetName: String,
+            displayFormat: {
+                type: Object,
+                value: function() {
+                    return trade => trade.taking_order.traded_volume;
+                },
+            },
         };
     }
 
@@ -33,13 +38,11 @@ class TradeList extends PolymerElement {
                 }
             </style>
 
-            <otree-constants
-                id="constants"
-            ></otree-constants>
-
             <div id="container">
                 <template is="dom-repeat" items="{{trades}}" filter="{{_getAssetFilterFunc(assetName)}}">
-                    <div><span>$</span>{{item.making_orders.0.price}}</div>
+                    <div>
+                        <span>[[displayFormat(item)]]</span>
+                    </div>
                 </template>
             </div>
         `;
@@ -53,7 +56,6 @@ class TradeList extends PolymerElement {
             return trade.asset_name == assetName;
         }
     }
-
 
 }
 

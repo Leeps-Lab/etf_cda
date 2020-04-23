@@ -3,7 +3,7 @@ import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '../widgets/order_list.js';
 import '../widgets/trade_list.js';
-import '../widgets/order_enter_widget.js';
+import './order_enter_widget.js';
 import '../widgets/simple_modal.js';
 import '../widgets/event_log.js';
 import '../widgets/order_book.js'
@@ -20,8 +20,10 @@ class SingleAssetTextInterface extends PolymerElement {
             bids: Array,
             asks: Array,
             trades: Array,
-            assets: Object,
-            cash: Number,
+            settledAssets: Object,
+            availableAssets: Object,
+            settledCash: Number,
+            availableCash: Number,
         };
     }
 
@@ -73,8 +75,10 @@ class SingleAssetTextInterface extends PolymerElement {
                 bids="{{bids}}"
                 asks="{{asks}}"
                 trades="{{trades}}"
-                assets="{{assets}}"
-                cash="{{cash}}"
+                settled-assets="{{settledAssets}}"
+                available-assets="{{availableAssets}}"
+                settled-cash="{{settledCash}}"
+                available-cash="{{availableCash}}"
             ></order-book>
 
             <div class="container" id="main-container">
@@ -84,14 +88,7 @@ class SingleAssetTextInterface extends PolymerElement {
                         class="flex-fill"
                         orders="[[bids]]"
                         on-order-canceled="_order_canceled"
-                    ></order-list>
-                </div>
-                <div>
-                    <h3>Asks</h3>
-                    <order-list
-                        class="flex-fill"
-                        orders="[[asks]]"
-                        on-order-canceled="_order_canceled"
+                        on-order-accepted="_order_accepted"
                     ></order-list>
                 </div>
                 <div>
@@ -102,10 +99,21 @@ class SingleAssetTextInterface extends PolymerElement {
                     ></trade-list>
                 </div>
                 <div>
+                    <h3>Asks</h3>
+                    <order-list
+                        class="flex-fill"
+                        orders="[[asks]]"
+                        on-order-canceled="_order_canceled"
+                        on-order-accepted="_order_accepted"
+                    ></order-list>
+                </div>
+                <div>
                     <order-enter-widget
                         class="flex-fill"
-                        cash="[[cash]]"
-                        assets="[[assets]]"
+                        settled-assets="{{settledAssets}}"
+                        available-assets="{{availableAssets}}"
+                        settled-cash="{{settledCash}}"
+                        available-cash="{{availableCash}}"
                         on-order-entered="_order_entered"
                     ></order-enter-widget>
                 </div>
@@ -124,7 +132,6 @@ class SingleAssetTextInterface extends PolymerElement {
 
     ready() {
         super.ready();
-
         this.pcode = this.$.constants.participantCode;
 
         // maps incoming message types to their appropriate handler
@@ -186,6 +193,24 @@ class SingleAssetTextInterface extends PolymerElement {
             this.$.chan.send({
                 type: 'cancel',
                 payload: order,
+            });
+        };
+        this.$.modal.show();
+    }
+
+    _order_accepted(event) {
+        const order = event.detail;
+        if (order.pcode == this.pcode)
+            return;
+
+        this.$.modal.modal_text = `Do you want to ${order.is_bid ? 'buy' : 'sell'} asset ${order.asset_name} for $${order.price}?`
+        this.$.modal.on_close_callback = (accepted) => {
+            if (!accepted)
+                return;
+
+            this.$.chan.send({
+                type: 'accept_immediate',
+                payload: order
             });
         };
         this.$.modal.show();

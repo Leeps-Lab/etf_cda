@@ -8,8 +8,22 @@ class OrderBook extends PolymerElement {
             bids: Array,
             asks: Array,
             trades: Array,
-            assets: Object,
-            cash: Number,
+            settledAssets: {
+                type: Object,
+                notify: true,
+            },
+            availableAssets: {
+                type: Object,
+                notify: true,
+            },
+            settledCash: {
+                type: Number,
+                notify: true,
+            },
+            availableCash: {
+                type: Number,
+                notify: true,
+            },
         }
     }
 
@@ -53,6 +67,10 @@ class OrderBook extends PolymerElement {
                 break;
         }
         this.splice('bids', i, 0, order);
+
+        if (order.pcode == this.pcode) {
+            this.availableCash -= order.price * order.volume;
+        }
     }
 
     // insert an ask into the asks array in ascending order
@@ -63,6 +81,10 @@ class OrderBook extends PolymerElement {
                 break;
         }
         this.splice('asks', i, 0, order);
+
+        if (order.pcode == this.pcode) {
+            this._update_subproperty('availableAssets', order.asset_name, -order.volume);
+        }
     }
 
     // remove an order from either the bids list or the asks list
@@ -78,49 +100,35 @@ class OrderBook extends PolymerElement {
             return;
         }
         this.splice(order_store_name, i, 1);
+
+        if (order.pcode == this.pcode) {
+            if (order.is_bid) {
+                this.availableCash += order.price * order.volume;
+            }
+            else {
+                this._update_subproperty('availableAssets', order.asset_name, order.volume);
+            }
+        }
     }
 
     handle_trade(making_orders, taking_order, asset_name, timestamp) {
         // list of order dicts that belong to this trader and that were involved in this trade
         const my_trades = [];
         
-        // copy this player's cash and assets so when we change them it only triggers one update
-        let new_cash   = this.cash;
-        let new_assets = this.get(['assets', asset_name]);
         // iterate through making orders from this trade. if a making order is yours or the taking order is yours,
         // update your cash and assets appropriately
         for (const making_order of making_orders) {
-            if (making_order.is_bid) {
-                if (making_order.pcode == this.pcode) {
-                    my_trades.push(making_order)
-                    new_cash   -= making_order.price * making_order.traded_volume;
-                    new_assets += making_order.traded_volume;
-                }
-                if (taking_order.pcode == this.pcode) {
-                    new_cash   += making_order.price * making_order.traded_volume;
-                    new_assets -= making_order.traded_volume;
-                }
+            if (making_order.pcode == this.pcode) {
+                my_trades.push(making_order)
+                this._update_holdings(making_order.price, making_order.traded_volume, making_order.is_bid, making_order.asset_name);
             }
-            else {
-                if (making_order.pcode == this.pcode) {
-                    my_trades.push(making_order)
-                    new_cash   += making_order.price * making_order.traded_volume;
-                    new_assets -= making_order.traded_volume;
-                }
-                if (taking_order.pcode == this.pcode) {
-                    new_cash   -= making_order.price * making_order.traded_volume;
-                    new_assets += making_order.traded_volume;
-                }
+            if (taking_order.pcode == this.pcode) {
+                this._update_holdings(making_order.price, making_order.traded_volume, taking_order.is_bid, taking_order.asset_name);
             }
             this.remove_order(making_order)
         }
         if (taking_order.pcode == this.pcode) {
             my_trades.push(taking_order)
-        }
-        // only update cash/assets if necessary
-        if (this.cash != new_cash) {
-            this.cash = new_cash;
-            this.set(['assets', asset_name], new_assets);
         }
 
         // make a new trade object and sorted-ly insert it into the trades list
@@ -137,6 +145,28 @@ class OrderBook extends PolymerElement {
         this.splice('trades', i, 0, trade);
 
         return my_trades;
+    }
+
+    _update_holdings(price, volume, is_bid, asset_name) {
+        if (is_bid) {
+            this._update_subproperty('availableAssets', asset_name, volume);
+            this._update_subproperty('settledAssets', asset_name, volume);
+
+            this.availableCash -= price * volume;
+            this.settledCash -= price * volume;
+        }
+        else {
+            this._update_subproperty('availableAssets', asset_name, -volume);
+            this._update_subproperty('settledAssets', asset_name, -volume);
+
+            this.availableCash += price * volume;
+            this.settledCash += price * volume;
+        }
+    }
+
+    _update_subproperty(property, subproperty, amount) {
+        const old = this.get([property, subproperty]);
+        this.set([property, subproperty], old + amount);
     }
 
 }

@@ -26,8 +26,10 @@ class BaseMarketPage(Page):
             'bids': json.dumps(bids),
             'asks': json.dumps(asks),
             'trades': json.dumps(trades),
-            'assets': json.dumps(self.player.assets),
-            'cash': self.player.cash,
+            'available_assets': json.dumps(self.player.available_assets),
+            'settled_assets': json.dumps(self.player.settled_assets),
+            'available_cash': self.player.available_cash,
+            'settled_cash': self.player.settled_cash,
         }
 
     def is_displayed(self):

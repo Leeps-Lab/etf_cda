@@ -20,8 +20,10 @@ class MultipleAssetTextInterface extends PolymerElement {
             bids: Array,
             asks: Array,
             trades: Array,
-            assets: Object,
-            cash: Number,
+            settledAssets: Object,
+            availableAssets: Object,
+            settledCash: Number,
+            availableCash: Number,
         };
     }
 
@@ -78,8 +80,10 @@ class MultipleAssetTextInterface extends PolymerElement {
                 bids="{{bids}}"
                 asks="{{asks}}"
                 trades="{{trades}}"
-                assets="{{assets}}"
-                cash="{{cash}}"
+                settled-assets="{{settledAssets}}"
+                available-assets="{{availableAssets}}"
+                settled-cash="{{settledCash}}"
+                available-cash="{{availableCash}}"
             ></order-book>
 
             <div class="full-width">
@@ -101,8 +105,10 @@ class MultipleAssetTextInterface extends PolymerElement {
                 <div class="info-container">
                     <div>
                         <asset-table
-                            assets="[[assets]]"
-                            cash="[[cash]]"
+                            settled-assets="{{settledAssets}}"
+                            available-assets="{{availableAssets}}"
+                            settled-cash="{{settledCash}}"
+                            available-cash="{{availableCash}}"
                             bids="[[bids]]"
                             asks="[[asks]]"
                         ></asset-table>
@@ -122,7 +128,7 @@ class MultipleAssetTextInterface extends PolymerElement {
         super.ready();
 
         this.pcode = this.$.constants.participantCode;
-        this.asset_names = Object.keys(this.assets);
+        this.asset_names = Object.keys(this.availableAssets);
 
         // maps incoming message types to their appropriate handler
         this.message_handlers = {
@@ -190,6 +196,8 @@ class MultipleAssetTextInterface extends PolymerElement {
 
     _order_accepted(event) {
         const order = event.detail;
+        if (order.pcode == this.pcode)
+            return;
 
         this.$.modal.modal_text = `Do you want to ${order.is_bid ? 'buy' : 'sell'} asset ${order.asset_name} for $${order.price}?`
         this.$.modal.on_close_callback = (accepted) => {
@@ -208,7 +216,7 @@ class MultipleAssetTextInterface extends PolymerElement {
     _handle_confirm_trade(msg) {
         const my_trades = this.$.order_book.handle_trade(msg.making_orders, msg.taking_order, msg.asset_name, msg.timestamp);
         for (let order of my_trades) {
-            this.$.log.info(`You ${order.is_bid ? 'bought' : 'sold'} asset ${order.asset_name} for $${order.price}`);
+            this.$.log.info(`You ${order.is_bid ? 'bought' : 'sold'} asset ${order.asset_name} for $${msg.making_orders[0].price}`);
         }
     }
 

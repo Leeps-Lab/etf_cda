@@ -15,6 +15,12 @@ class OrderList extends PolymerElement {
         return {
             orders: Array,
             assetName: String,
+            displayFormat: {
+                type: Object,
+                value: function() {
+                    return order => `${order.volume} @ $${order.price}`;
+                },
+            },
         };
     }
 
@@ -58,7 +64,7 @@ class OrderList extends PolymerElement {
             <div id="container">
                 <template is="dom-repeat" items="{{orders}}" filter="{{_getAssetFilterFunc(assetName)}}">
                     <div on-dblclick="_acceptOrder" class$="[[_getOrderClass(item)]]">
-                        <span>$[[item.price]]</span>
+                        <span>[[displayFormat(item)]]</span>
                         <span class="cancel-button" on-click="_cancelOrder">&#9746;</span>
                     </div>
                 </template>
@@ -94,7 +100,6 @@ class OrderList extends PolymerElement {
 
     _acceptOrder(event) {
         const order = event.model.item;
-        if (order.pcode == this.pcode) return;
         this.dispatchEvent(new CustomEvent('order-accepted', {detail: order, bubbles: true, composed: true}));
     }
 

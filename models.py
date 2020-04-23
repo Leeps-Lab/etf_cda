@@ -22,6 +22,7 @@ class Constants(BaseConstants):
         'num_assets': int,
         'asset_endowments': str,
         'cash_endowment': int,
+        'allow_short': bool,
     }
 
 class Subsession(BaseSubsession):
@@ -86,12 +87,13 @@ class Group(RedwoodGroup):
         '''handle an enter message sent from the frontend'''
         player = self._get_player(enter_msg['pcode'])
 
-        if enter_msg['is_bid'] and player.cash < enter_msg['price'] * enter_msg['volume']:
-            self._send_error(enter_msg['pcode'], 'Order rejected: insufficient cash')
-            return
-        if not enter_msg['is_bid'] and player.assets[enter_msg['asset_name']] < enter_msg['volume']:
-            self._send_error(enter_msg['pcode'], 'Order rejected: insufficient amount of asset {}'.format(enter_msg['asset_name']))
-            return
+        if not self.subsession.config.allow_short:
+            if enter_msg['is_bid'] and player.available_cash < enter_msg['price'] * enter_msg['volume']:
+                self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available cash')
+                return
+            if not enter_msg['is_bid'] and player.available_assets[enter_msg['asset_name']] < enter_msg['volume']:
+                self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available amount of asset {}'.format(enter_msg['asset_name']))
+                return
 
         exchange = self.exchanges.get(asset_name=enter_msg['asset_name'])
         order_id = exchange.enter_order(
@@ -116,12 +118,14 @@ class Group(RedwoodGroup):
     def _handle_accept_immediate(self, accepted_order, sender_pcode):
         '''handle an immediate accept message sent from the frontend'''
         player = self._get_player(sender_pcode)
-        if accepted_order['is_bid'] and player.cash < accepted_order['price'] * accepted_order['volume']:
-            self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient cash')
-            return
-        if not accepted_order['is_bid'] and player.assets[accepted_order['asset_name']] < accepted_order['volume']:
-            self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient amount of asset {}'.format(accepted_order['asset_name']))
-            return
+
+        if not self.subsession.config.allow_short:
+            if accepted_order['is_bid'] and player.available_cash < accepted_order['price'] * accepted_order['volume']:
+                self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available cash')
+                return
+            if not accepted_order['is_bid'] and player.available_assets[accepted_order['asset_name']] < accepted_order['volume']:
+                self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order['asset_name']))
+                return
 
         exchange = self.exchanges.get(asset_name=accepted_order['asset_name'])
         exchange.accept_immediate(
@@ -133,6 +137,13 @@ class Group(RedwoodGroup):
     def confirm_enter(self, order_dict):
         '''send an order entry confirmation to the frontend. this function is called
         by the exchange when an order is successfully entered'''
+        player = self._get_player(order_dict['pcode'])
+        if order_dict['is_bid']:
+            player.available_cash -= order_dict['price'] * order_dict['volume']
+        else:
+            player.available_assets[order_dict['asset_name']] -= order_dict['volume']
+        player.save()
+
         confirm_msg = {
             'type': 'confirm_enter',
             'payload': order_dict,
@@ -145,18 +156,18 @@ class Group(RedwoodGroup):
         taking_player = self._get_player(taking_order['pcode'])
         for making_order in making_orders:
             making_player = self._get_player(making_order['pcode'])
+            # need to update making players' available cash and assets
+            # since these were adjusted when their order was entered, they need to be adjusted back so they're not double counted
             if making_order['is_bid']:
-                making_player.cash -= making_order['price'] * making_order['traded_volume']
-                making_player.assets[asset_name] += making_order['traded_volume']
-
-                taking_player.cash += making_order['price'] * making_order['traded_volume']
-                taking_player.assets[asset_name] -= making_order['traded_volume']
+                making_player.available_cash += making_order['price'] * making_order['volume']
             else:
-                making_player.cash += making_order['price'] * making_order['traded_volume']
-                making_player.assets[asset_name] -= making_order['traded_volume']
+                making_player.available_assets[making_order['asset_name']] += making_order['volume']
 
-                taking_player.cash -= making_order['price'] * making_order['traded_volume']
-                taking_player.assets[asset_name] += making_order['traded_volume']
+            volume = making_order['traded_volume']
+            price = making_order['price']
+            making_player.update_holdings(price, volume, making_order['is_bid'], making_order['asset_name'])
+            taking_player.update_holdings(price, volume, taking_order['is_bid'], taking_order['asset_name'])
+
             making_player.save()
         taking_player.save()
 
@@ -174,6 +185,13 @@ class Group(RedwoodGroup):
     def confirm_cancel(self, order_dict):
         '''send an order cancel confirmation to the frontend. this function is called
         by the exchange when an order is successfully canceled'''
+        player = self._get_player(order_dict['pcode'])
+        if order_dict['is_bid']:
+            player.available_cash += order_dict['price'] * order_dict['volume']
+        else:
+            player.available_assets[order_dict['asset_name']] += order_dict['volume']
+        player.save()
+
         confirm_msg = {
             'type': 'confirm_cancel',
             'payload': order_dict,
@@ -193,13 +211,35 @@ class Group(RedwoodGroup):
 
 class Player(BasePlayer):
 
-    assets = JSONField()
-    cash   = models.IntegerField()
+    settled_assets = JSONField()
+    available_assets = JSONField()
+
+    settled_cash   = models.IntegerField()
+    available_cash   = models.IntegerField()
 
     def set_endowment(self, asset_endowments, cash_endowment):
-        self.assets = asset_endowments
-        self.cash   = cash_endowment
+        self.settled_assets = asset_endowments
+        self.available_assets = asset_endowments
+
+        self.settled_cash   = cash_endowment
+        self.available_cash   = cash_endowment
         self.save()
+
+    def update_holdings(self, price, volume, is_bid, asset_name):
+        '''update this player's holdings (cash and assets) after a trade occurs.
+        params price, volume and is_bid reflect the transacted order belonging to this player'''
+        if is_bid:
+            self.available_assets[asset_name] += volume
+            self.settled_assets[asset_name] += volume
+            
+            self.available_cash -= price * volume
+            self.settled_cash -= price * volume
+        else:
+            self.available_assets[asset_name] -= volume
+            self.settled_assets[asset_name] -= volume
+            
+            self.available_cash += price * volume
+            self.settled_cash += price * volume
 
     # jsonfield is broken, it needs this special hack to get saved correctly
     # for more info see https://github.com/Leeps-Lab/otree-redwood/blob/master/otree_redwood/models.py#L167
