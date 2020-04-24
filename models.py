@@ -6,6 +6,7 @@ from .exchange import Exchange
 from .configmanager import ConfigManager
 from . import validate
 from jsonfield import JSONField
+from django.utils import timezone
 
 class Constants(BaseConstants):
     name_in_url = 'otree_markets'
@@ -59,6 +60,15 @@ class Group(RedwoodGroup):
 
     # group has a field 'exchanges' which is a related name from a ForeignKey on Exchange
     # this field is a queryset of all the exchange objects associated with this group
+
+    def period_length(self):
+        return self.subsession.config.period_length
+    
+    def get_remaining_time(self):
+        if self.ran_ready_function:
+            return self.period_length() - (timezone.now() - self.ran_ready_function).total_seconds()
+        else:
+            return self.period_length()
 
     def _get_player(self, pcode):
         '''get a player object given its participant code'''

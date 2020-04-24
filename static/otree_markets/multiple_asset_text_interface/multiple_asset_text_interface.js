@@ -1,6 +1,7 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
+import '/static/otree-redwood/src/redwood-period/redwood-period.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '../widgets/simple_modal.js';
 import '../widgets/event_log.js';
@@ -17,6 +18,7 @@ class MultipleAssetTextInterface extends PolymerElement {
 
     static get properties() {
         return {
+            timeRemaining: Number,
             bids: Array,
             asks: Array,
             trades: Array,
@@ -72,6 +74,9 @@ class MultipleAssetTextInterface extends PolymerElement {
                 channel="chan"
                 on-event="_on_message"
             ></redwood-channel>
+            <redwood-period
+                on-period-start="_start"
+            ></redwood-period>
             <otree-constants
                 id="constants"
             ></otree-constants>
@@ -105,6 +110,7 @@ class MultipleAssetTextInterface extends PolymerElement {
                 <div class="info-container">
                     <div>
                         <asset-table
+                            time-remaining="[[timeRemaining]]"
                             settled-assets="{{settledAssets}}"
                             available-assets="{{availableAssets}}"
                             settled-cash="{{settledCash}}"
@@ -233,6 +239,16 @@ class MultipleAssetTextInterface extends PolymerElement {
     _handle_error(msg) {
         if (msg.pcode == this.pcode) 
             this.$.log.error(msg['message'])
+    }
+
+    _start() {
+        const start_time = performance.now();
+        const tick = () => {
+            if (this.timeRemaining <= 0) return;
+            this.timeRemaining --;
+            setTimeout(tick, 1000 - (performance.now() - start_time) % 100);
+        }
+        setTimeout(tick, 1000);
     }
 }
 

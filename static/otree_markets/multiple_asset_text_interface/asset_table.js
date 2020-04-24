@@ -6,6 +6,7 @@ class AssetTable extends PolymerElement {
 
     static get properties() {
         return {
+            timeRemaining: Number,
             settledAssets: Object,
             availableAssets: Object,
             settledCash: Number,
@@ -81,6 +82,10 @@ class AssetTable extends PolymerElement {
                 <div>
                     <span>Settled Cash: </span>
                     <span>$[[settledCash]]</span>
+                </div>
+                <div>
+                    <span>Time Remaining: </span>
+                    <span>[[timeRemaining]]</span>
                 </div>
             </div>
         `;

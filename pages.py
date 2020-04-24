@@ -23,6 +23,7 @@ class BaseMarketPage(Page):
                     'making_orders': trade.get_making_orders_dicts(),
                 })
         return {
+            'time_remaining': round(self.group.get_remaining_time()),
             'bids': json.dumps(bids),
             'asks': json.dumps(asks),
             'trades': json.dumps(trades),
