@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+
 from itertools import chain
 
 class Exchange(models.Model):
@@ -9,12 +12,17 @@ class Exchange(models.Model):
 
     class Meta:
         app_label = 'otree_markets'
-        unique_together = ['group', 'asset_name']
+        unique_together = ('asset_name', 'content_type', 'object_id')
 
-    # the group object associated with this exchange
-    group = models.ForeignKey('Group', related_name='exchanges', on_delete=models.CASCADE)
-    # a unique name for this exchange
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    '''used to relate this Exchange to an arbitrary Group'''
+    object_id = models.PositiveIntegerField()
+    '''primary key of this Exchange's related Group'''
+    group = GenericForeignKey('content_type', 'object_id')
+    '''the Group this exchange is associated with'''
+
     asset_name = models.CharField(max_length=32)
+    '''a unique name for the asset traded in this exchange'''
     
     def _get_bids_qset(self):
         '''get a queryset of the bids held by this exchange, sorted by descending price then timestamp'''

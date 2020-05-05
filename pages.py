@@ -36,27 +36,3 @@ class BaseMarketPage(Page):
     def is_displayed(self):
         return self.round_number <= self.subsession.config.num_rounds
 
-
-class SingleAssetTextInterface(BaseMarketPage):
-    pass
-
-
-class MultipleAssetTextInterface(BaseMarketPage):
-    pass
-
-class ResultsWaitPage(WaitPage):
-
-    def is_displayed(self):
-        return self.round_number <= self.subsession.config.num_rounds
-
-
-class Results(Page):
-
-    def is_displayed(self):
-        return self.round_number <= self.subsession.config.num_rounds
-
-page_sequence = [
-    MultipleAssetTextInterface,
-    ResultsWaitPage,
-    Results
-]

@@ -7,6 +7,7 @@ from .configmanager import ConfigManager
 from . import validate
 from jsonfield import JSONField
 from django.utils import timezone
+from django.contrib.contenttypes.fields import GenericRelation
 
 class Constants(BaseConstants):
     name_in_url = 'otree_markets'
@@ -27,26 +28,36 @@ class Constants(BaseConstants):
     }
 
 class Subsession(BaseSubsession):
-    
+
+    class Meta(BaseSubsession.Meta):
+        abstract = True
+
+    constants = None
+    '''Subsession.constants is a static reference to the Constants class used by a subclass of Subsession.
+    This property must be set by any subclass of this class.'''
+
     @property
     def config(self):
-        config_addr = 'otree_markets/configs/' + self.session.config['config_file']
-        return ConfigManager(config_addr, self.round_number, Constants.config_fields)
+        config_addr = self.constants.name_in_url + '/configs/' + self.session.config['config_file']
+        return ConfigManager(config_addr, self.round_number, self.constants.config_fields)
 
     # get a dict mapping asset names to their initial endowments
     def _get_asset_endowments(self):
         endowments = list(map(int, self.config.asset_endowments.split()))
         if len(endowments) != self.config.num_assets:
             raise ValueError('invalid config: num_assets and asset_names must agree')
-        return dict(zip(Constants.asset_names, endowments))
+        return dict(zip(self.constants.asset_names, endowments))
 
     def creating_session(self):
         if self.round_number > self.config.num_rounds:
             return
+        
+        if self.constants is None:
+            raise ValueError('constants attribute on Subsession must be overridden')
 
         # create one exchange for each asset
         for i in range(self.config.num_assets):
-            name = Constants.asset_names[i]
+            name = self.constants.asset_names[i]
             for group in self.get_groups():
                 group.exchanges.create(asset_name=name)
         
@@ -58,8 +69,11 @@ class Subsession(BaseSubsession):
 
 class Group(RedwoodGroup):
 
-    # group has a field 'exchanges' which is a related name from a ForeignKey on Exchange
-    # this field is a queryset of all the exchange objects associated with this group
+    class Meta(RedwoodGroup.Meta):
+        abstract = True
+
+    exchanges = GenericRelation(Exchange)
+    '''a queryset of all the exchanges associated with this group'''
 
     def period_length(self):
         return self.subsession.config.period_length
@@ -220,6 +234,9 @@ class Group(RedwoodGroup):
         self.send('chan', error_msg)
 
 class Player(BasePlayer):
+
+    class Meta(BasePlayer.Meta):
+        abstract = True
 
     settled_assets = JSONField()
     available_assets = JSONField()
