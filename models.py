@@ -1,70 +1,52 @@
 from otree.api import (
-    models, BaseConstants, BaseSubsession, BasePlayer,
+    models, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
 from .exchange import Exchange
-from .configmanager import ConfigManager
 from . import validate
 from jsonfield import JSONField
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
 
-class Constants(BaseConstants):
-    name_in_url = 'otree_markets'
-    players_per_group = None
-    num_rounds = 99 
-
-    # list of capital letters A..Z
-    asset_names = [chr(i) for i in range(65, 91)]
-
-    # the columns of the config CSV and their types
-    # this dict is used by ConfigManager
-    config_fields = {
-        'period_length': int,
-        'num_assets': int,
-        'asset_endowments': str,
-        'cash_endowment': int,
-        'allow_short': bool,
-    }
+# this is the name of the only asset when in single asset mode
+SINGLE_ASSET_NAME = 'A'
 
 class Subsession(BaseSubsession):
 
     class Meta(BaseSubsession.Meta):
         abstract = True
 
-    constants = None
-    '''Subsession.constants is a static reference to the Constants class used by a subclass of Subsession.
-    This property must be set by any subclass of this class.'''
-
+    def asset_names(self):
+        '''this method describes the asset structure of an experiment.
+        if defined, it should return an array of names for each asset. one exchange will be created for each asset name
+        represented in this array. if not defined, one exchange is created and the game is configured for a single asset'''
+        return None
+    
     @property
-    def config(self):
-        config_addr = self.constants.name_in_url + '/configs/' + self.session.config['config_file']
-        return ConfigManager(config_addr, self.round_number, self.constants.config_fields)
+    def single_asset(self):
+        '''return true if subsession is in single asset mode'''
+        return self.asset_names() is None
 
-    # get a dict mapping asset names to their initial endowments
-    def _get_asset_endowments(self):
-        endowments = list(map(int, self.config.asset_endowments.split()))
-        if len(endowments) != self.config.num_assets:
-            raise ValueError('invalid config: num_assets and asset_names must agree')
-        return dict(zip(self.constants.asset_names, endowments))
+    def allow_short(self):
+        '''override this method to allow players to have negative holdings'''
+        return False
 
     def creating_session(self):
-        if self.round_number > self.config.num_rounds:
-            return
-        
-        if self.constants is None:
-            raise ValueError('constants attribute on Subsession must be overridden')
+        asset_names = self.asset_names()
 
-        # create one exchange for each asset
-        for i in range(self.config.num_assets):
-            name = self.constants.asset_names[i]
+        # if we're in single asset mode
+        if asset_names is None:
             for group in self.get_groups():
-                group.exchanges.create(asset_name=name)
-        
-        # initialize players' cash and assets
-        asset_endowments = self._get_asset_endowments()
-        for player in self.get_players():
-            player.set_endowment(asset_endowments, self.config.cash_endowment)
+                group.exchanges.create(asset_name=SINGLE_ASSET_NAME)
+            for player in self.get_players():
+                player.set_endowments( [SINGLE_ASSET_NAME] )
+        # if we're in multiple asset mode
+        else:
+            for group in self.get_groups():
+                for name in asset_names:
+                    group.exchanges.create(asset_name=name)
+            for player in self.get_players():
+                player.set_endowments(asset_names)
 
 
 class Group(RedwoodGroup):
@@ -72,17 +54,19 @@ class Group(RedwoodGroup):
     class Meta(RedwoodGroup.Meta):
         abstract = True
 
-    exchanges = GenericRelation(Exchange)
+    exchange_class = Exchange
+    exchanges = GenericRelation(exchange_class)
     '''a queryset of all the exchanges associated with this group'''
 
-    def period_length(self):
-        return self.subsession.config.period_length
-    
     def get_remaining_time(self):
+        '''gets the total amount of time remaining in the round'''
+        period_length = self.period_length()
+        if period_length is None:
+            return None
         if self.ran_ready_function:
-            return self.period_length() - (timezone.now() - self.ran_ready_function).total_seconds()
+            return period_length - (timezone.now() - self.ran_ready_function).total_seconds()
         else:
-            return self.period_length()
+            return period_length
 
     def _get_player(self, pcode):
         '''get a player object given its participant code'''
@@ -110,16 +94,21 @@ class Group(RedwoodGroup):
     def _handle_enter(self, enter_msg):
         '''handle an enter message sent from the frontend'''
         player = self._get_player(enter_msg['pcode'])
+        asset_name = SINGLE_ASSET_NAME if self.subsession.single_asset else enter_msg['asset_name']
 
-        if not self.subsession.config.allow_short:
+        if not self.subsession.allow_short():
             if enter_msg['is_bid'] and player.available_cash < enter_msg['price'] * enter_msg['volume']:
                 self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available cash')
                 return
-            if not enter_msg['is_bid'] and player.available_assets[enter_msg['asset_name']] < enter_msg['volume']:
-                self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available amount of asset {}'.format(enter_msg['asset_name']))
+            print(player.available_assets)
+            if not enter_msg['is_bid'] and player.available_assets[asset_name] < enter_msg['volume']:
+                if self.subsession.single_asset:
+                    self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available assets')
+                else:
+                    self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available amount of asset {}'.format(asset_name))
                 return
 
-        exchange = self.exchanges.get(asset_name=enter_msg['asset_name'])
+        exchange = self.exchanges.get(asset_name=asset_name)
         order_id = exchange.enter_order(
             enter_msg['price'],
             enter_msg['volume'],
@@ -130,9 +119,9 @@ class Group(RedwoodGroup):
     def _handle_cancel(self, canceled_order, sender_pcode):
         '''handle a cancel message sent from the frontend'''
         if canceled_order['pcode'] != sender_pcode:
-            print('cancel rejected: players can\t cancel others\' orders')
+            print('cancel rejected: players can\'t cancel others\' orders')
             return
-        
+
         exchange = self.exchanges.get(asset_name=canceled_order['asset_name'])
         exchange.cancel_order(
             canceled_order['is_bid'],
@@ -143,12 +132,15 @@ class Group(RedwoodGroup):
         '''handle an immediate accept message sent from the frontend'''
         player = self._get_player(sender_pcode)
 
-        if not self.subsession.config.allow_short:
+        if not self.subsession.allow_short():
             if accepted_order['is_bid'] and player.available_cash < accepted_order['price'] * accepted_order['volume']:
                 self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available cash')
                 return
             if not accepted_order['is_bid'] and player.available_assets[accepted_order['asset_name']] < accepted_order['volume']:
-                self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order['asset_name']))
+                if self.subsession.single_asset:
+                    self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available assets')
+                else:
+                    self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order['asset_name']))
                 return
 
         exchange = self.exchanges.get(asset_name=accepted_order['asset_name'])
@@ -233,6 +225,7 @@ class Group(RedwoodGroup):
         }
         self.send('chan', error_msg)
 
+
 class Player(BasePlayer):
 
     class Meta(BasePlayer.Meta):
@@ -241,15 +234,32 @@ class Player(BasePlayer):
     settled_assets = JSONField()
     available_assets = JSONField()
 
-    settled_cash   = models.IntegerField()
-    available_cash   = models.IntegerField()
+    settled_cash = models.IntegerField()
+    available_cash = models.IntegerField()
 
-    def set_endowment(self, asset_endowments, cash_endowment):
-        self.settled_assets = asset_endowments
-        self.available_assets = asset_endowments
+    def asset_endowment(self, asset_name):
+        '''this method defines each player's initial endowment of each asset. it takes an asset name
+        and should return an integer for this player's endowment of that asset'''
+        raise NotImplementedError
 
-        self.settled_cash   = cash_endowment
-        self.available_cash   = cash_endowment
+    def cash_endowment(self):
+        '''this method defines each player's initial cash endowment. it should return an integer for this
+        player's endowment of cash'''
+        raise NotImplementedError
+
+    def set_endowments(self, asset_names):
+        '''sets all of this player's cash and asset endowments, given an array of all relevant asset names'''
+        self.settled_assets = {}
+        self.available_assets = {}
+        for name in asset_names:
+            endowment = self.asset_endowment(name)
+            self.settled_assets[name] = endowment
+            self.available_assets[name] = endowment
+
+        cash_endowment = self.cash_endowment()
+        self.settled_cash = cash_endowment
+        self.available_cash = cash_endowment
+
         self.save()
 
     def update_holdings(self, price, volume, is_bid, asset_name):

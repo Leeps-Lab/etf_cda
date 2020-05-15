@@ -1,5 +1,7 @@
 import { PolymerElement, html } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
+import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
+import '/static/otree-redwood/src/redwood-period/redwood-period.js';
 
 class TraderState extends PolymerElement {
 
@@ -11,26 +13,77 @@ class TraderState extends PolymerElement {
 
     static get properties() {
         return {
-            bids: Array,
-            asks: Array,
-            trades: Array,
+            // array of bid order objects
+            // ordered by price descending, then timestamp
+            bids: {
+                type: Array,
+                value: TRADER_STATE.bids,
+                notify: true,
+                reflectToAttribute: true,
+            },
+            // array of ask order objects
+            // ordered by price ascending, then timestamp
+            asks: {
+                type: Array,
+                value: TRADER_STATE.asks,
+                notify: true,
+                reflectToAttribute: true,
+            },
+            // array of trade objects
+            // ordered by timestamp
+            trades: {
+                type: Array,
+                value: TRADER_STATE.trades,
+                notify: true,
+                reflectToAttribute: true,
+            },
+            // dict mapping asset names to this player's settled amount of that asset
+            settledAssetsDict: {
+                type: Object,
+                value: TRADER_STATE.settled_assets,
+                notify: true,
+                reflectToAttribute: true,
+            },
+            // when in single-asset mode, this property is the settled amount of that one asset
             settledAssets: {
-                type: Object,
+                type: Number,
+                value: null,
                 notify: true,
                 reflectToAttribute: true,
             },
+            // dict mapping asset names to this player's available amount of that asset
+            availableAssetsDict: {
+                type: Object,
+                value: TRADER_STATE.available_assets,
+                notify: true,
+                reflectToAttribute: true,
+            },
+            // when in single-asset mode, this property is the available amount of that one asset
             availableAssets: {
-                type: Object,
+                type: Number,
+                value: null,
                 notify: true,
                 reflectToAttribute: true,
             },
+            // this player's settled cash
             settledCash: {
                 type: Number,
+                value: TRADER_STATE.settled_cash,
                 notify: true,
                 reflectToAttribute: true,
             },
+            // this player's available cash
             availableCash: {
                 type: Number,
+                value: TRADER_STATE.available_cash,
+                notify: true,
+                reflectToAttribute: true,
+            },
+            // the amount of time remaining in this round of trading in seconds if period_length is set, null otherwise
+            // updated once a second
+            timeRemaining: {
+                time: Number,
+                value: TRADER_STATE.time_remaining,
                 notify: true,
                 reflectToAttribute: true,
             },
@@ -47,12 +100,22 @@ class TraderState extends PolymerElement {
             <otree-constants
                 id="constants"
             ></otree-constants>
+            <redwood-period
+                on-period-start="_start"
+            ></redwood-period>
         `;
     }
 
     ready() {
         super.ready();
         this.pcode = this.$.constants.participantCode;
+
+        // dynamically make single-asset properties computed only when in single-asset mode
+        // that way these properties will just be null when using multiple assets. might prevent some confusion
+        if (Object.keys(this.availableAssetsDict).length == 1) {
+            this._createComputedProperty('settledAssets', '_compute_single_asset(settledAssetsDict.*)', true);
+            this._createComputedProperty('availableAssets', '_compute_single_asset(availableAssetsDict.*)', true);
+        }
 
         // maps incoming message types to their appropriate handler
         this.message_handlers = {
@@ -64,14 +127,14 @@ class TraderState extends PolymerElement {
     }
 
     // call this method to send an order enter message to the backend
-    enter_order(order) {
+    enter_order(price, volume, is_bid, asset_name=null) {
         this.$.chan.send({
             type: 'enter',
             payload: {
-                price: order.price,
-                volume: order.volume,
-                is_bid: order.is_bid,
-                asset_name: order.asset_name,
+                price: price,
+                volume: volume,
+                is_bid: is_bid,
+                asset_name: asset_name,
                 pcode: this.pcode,
             }
         });
@@ -150,15 +213,15 @@ class TraderState extends PolymerElement {
     // update this player's holdings when a trade occurs
     _update_holdings(price, volume, is_bid, asset_name) {
         if (is_bid) {
-            this._update_subproperty('availableAssets', asset_name, volume);
-            this._update_subproperty('settledAssets', asset_name, volume);
+            this._update_subproperty('availableAssetsDict', asset_name, volume);
+            this._update_subproperty('settledAssetsDict', asset_name, volume);
 
             this.availableCash -= price * volume;
             this.settledCash -= price * volume;
         }
         else {
-            this._update_subproperty('availableAssets', asset_name, -volume);
-            this._update_subproperty('settledAssets', asset_name, -volume);
+            this._update_subproperty('availableAssetsDict', asset_name, -volume);
+            this._update_subproperty('settledAssetsDict', asset_name, -volume);
 
             this.availableCash += price * volume;
             this.settledCash += price * volume;
@@ -174,7 +237,7 @@ class TraderState extends PolymerElement {
                 this.availableCash += order.price * order.volume;
             }
             else {
-                this._update_subproperty('availableAssets', order.asset_name, order.volume);
+                this._update_subproperty('availableAssetsDict', order.asset_name, order.volume);
             }
         }
 
@@ -195,7 +258,7 @@ class TraderState extends PolymerElement {
         this.splice(order_store_name, i, 1);
     }
 
-    // handle an incomming error message
+    // handle an incoming error message
     _handle_error(msg) {
         if (msg.pcode == this.pcode) {
             this.dispatchEvent(new CustomEvent('error', {detail: msg.message, bubbles: true, composed: true}));
@@ -236,7 +299,7 @@ class TraderState extends PolymerElement {
         this.splice('asks', i, 0, order);
 
         if (order.pcode == this.pcode) {
-            this._update_subproperty('availableAssets', order.asset_name, -order.volume);
+            this._update_subproperty('availableAssetsDict', order.asset_name, -order.volume);
         }
     }
 
@@ -245,6 +308,21 @@ class TraderState extends PolymerElement {
         this.set([property, subproperty], old + amount);
     }
 
+    // update timeRemaining once per second if it's defined
+    _start() {
+        if (!this.timeRemaining) return;
+        const start_time = performance.now();
+        const tick = () => {
+            if (this.timeRemaining <= 0) return;
+            this.timeRemaining --;
+            setTimeout(tick, 1000 - (performance.now() - start_time) % 100);
+        }
+        setTimeout(tick, 1000);
+    }
+
+    _compute_single_asset(assets_dict) {
+        return Object.values(assets_dict.base)[0];
+    }
 }
 
 window.customElements.define('trader-state', TraderState);

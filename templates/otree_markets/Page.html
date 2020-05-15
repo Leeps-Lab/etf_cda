@@ -1,0 +1,27 @@
+{% extends "otree_redwood/Page.html" %}
+
+{# javascript to set initial values on trader-state webcomponent #}
+
+{% block internal_scripts %}
+    {{ block.super }}
+    <script>
+        {% autoescape off %}
+
+        var TRADER_STATE;
+        (function() {
+            const time_remaining = '{{ trader_state.time_remaining }}';
+            TRADER_STATE = {
+                bids: JSON.parse('{{ trader_state.bids }}'),
+                asks: JSON.parse('{{ trader_state.asks }}'),
+                trades: JSON.parse('{{ trader_state.trades }}'),
+                settled_assets: JSON.parse('{{ trader_state.settled_assets }}'),
+                available_assets: JSON.parse('{{ trader_state.available_assets }}'),
+                settled_cash: parseInt('{{ trader_state.settled_cash }}'),
+                available_cash: parseInt('{{ trader_state.available_cash }}'),
+                time_remaining: time_remaining === 'None' ? null : parseFloat(time_remaining),
+            }
+        })();
+
+        {% endautoescape %}
+    </script>
+{% endblock %}

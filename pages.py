@@ -1,7 +1,4 @@
-from otree.api import Currency as c, currency_range
-from . import models
-from ._builtin import Page, WaitPage
-from .models import Constants
+from ._builtin import Page
 import json
 
 class BaseMarketPage(Page):
@@ -23,16 +20,14 @@ class BaseMarketPage(Page):
                     'making_orders': trade.get_making_orders_dicts(),
                 })
         return {
-            'time_remaining': round(self.group.get_remaining_time()),
-            'bids': json.dumps(bids),
-            'asks': json.dumps(asks),
-            'trades': json.dumps(trades),
-            'available_assets': json.dumps(self.player.available_assets),
-            'settled_assets': json.dumps(self.player.settled_assets),
-            'available_cash': self.player.available_cash,
-            'settled_cash': self.player.settled_cash,
+            'trader_state': {
+                'time_remaining': self.group.get_remaining_time(),
+                'bids': json.dumps(bids),
+                'asks': json.dumps(asks),
+                'trades': json.dumps(trades),
+                'available_assets': json.dumps(self.player.available_assets),
+                'settled_assets': json.dumps(self.player.settled_assets),
+                'available_cash': self.player.available_cash,
+                'settled_cash': self.player.settled_cash,
+            }
         }
-
-    def is_displayed(self):
-        return self.round_number <= self.subsession.config.num_rounds
-

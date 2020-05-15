@@ -41,7 +41,7 @@ def validate_enter(enter_msg):
         'volume': int,
         'is_bid': bool,
         'pcode': str,
-        'asset_name': str,
+        'asset_name': (str, NoneType),
     }
     _validate_msg(field_types, enter_msg, 'enter')
 
