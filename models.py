@@ -39,14 +39,14 @@ class Subsession(BaseSubsession):
             for group in self.get_groups():
                 group.exchanges.create(asset_name=SINGLE_ASSET_NAME)
             for player in self.get_players():
-                player.set_endowments( [SINGLE_ASSET_NAME] )
+                player.set_endowments()
         # if we're in multiple asset mode
         else:
             for group in self.get_groups():
                 for name in asset_names:
                     group.exchanges.create(asset_name=name)
             for player in self.get_players():
-                player.set_endowments(asset_names)
+                player.set_endowments()
 
 
 class Group(RedwoodGroup):
@@ -100,7 +100,6 @@ class Group(RedwoodGroup):
             if enter_msg['is_bid'] and player.available_cash < enter_msg['price'] * enter_msg['volume']:
                 self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available cash')
                 return
-            print(player.available_assets)
             if not enter_msg['is_bid'] and player.available_assets[asset_name] < enter_msg['volume']:
                 if self.subsession.single_asset:
                     self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available assets')
@@ -237,9 +236,10 @@ class Player(BasePlayer):
     settled_cash = models.IntegerField()
     available_cash = models.IntegerField()
 
-    def asset_endowment(self, asset_name):
-        '''this method defines each player's initial endowment of each asset. it takes an asset name
-        and should return an integer for this player's endowment of that asset'''
+    def asset_endowment(self):
+        '''this method defines each player's initial endowment of each asset. in single-asset mode, this should return
+        a single value for the single asset. in multiple-asset mode, this should return a dict mapping asset names to
+        endowments'''
         raise NotImplementedError
 
     def cash_endowment(self):
@@ -247,14 +247,14 @@ class Player(BasePlayer):
         player's endowment of cash'''
         raise NotImplementedError
 
-    def set_endowments(self, asset_names):
-        '''sets all of this player's cash and asset endowments, given an array of all relevant asset names'''
-        self.settled_assets = {}
-        self.available_assets = {}
-        for name in asset_names:
-            endowment = self.asset_endowment(name)
-            self.settled_assets[name] = endowment
-            self.available_assets[name] = endowment
+    def set_endowments(self):
+        '''sets all of this player's cash and asset endowments'''
+        if self.subsession.single_asset:
+            asset_endowment = { SINGLE_ASSET_NAME: self.asset_endowment() }
+        else:
+            asset_endowment = self.asset_endowment()
+        self.settled_assets = asset_endowment
+        self.available_assets = asset_endowment
 
         cash_endowment = self.cash_endowment()
         self.settled_cash = cash_endowment
