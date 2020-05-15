@@ -1,5 +1,0 @@
-self clearing?
-clearing price? - james' implementation just uses ask price
-single unit, so each order can only transact with one other order right?
-when someone transacts, some of their orders in all markets may not be valid anymore. remove them?
-dividends?
