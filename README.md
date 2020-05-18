@@ -10,4 +10,4 @@ This repo is not an oTree app, it is a set of base classes and Polymer.js compon
 
 This project was started by Morgan Grant in fulfillment of his Masters project. You can read the writeup paper for that [here](https://leeps.ucsc.edu/media/papers/project_writeup.pdf)
 
-For instructions
+For documentation, check out the [wiki](https://github.com/Leeps-Lab/otree_markets/wiki)
