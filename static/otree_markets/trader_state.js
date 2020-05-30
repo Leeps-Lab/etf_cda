@@ -3,7 +3,7 @@ import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
 import '/static/otree-redwood/src/redwood-period/redwood-period.js';
 
-class TraderState extends PolymerElement {
+export class TraderState extends PolymerElement {
 
     /*
         this webcomponent is responsible for communicating with the backend and maintaining a single player's

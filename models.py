@@ -97,16 +97,15 @@ class Group(RedwoodGroup):
         player = self._get_player(enter_msg['pcode'])
         asset_name = SINGLE_ASSET_NAME if self.subsession.single_asset else enter_msg['asset_name']
 
-        if not self.subsession.allow_short():
-            if enter_msg['is_bid'] and player.available_cash < enter_msg['price'] * enter_msg['volume']:
+        if not player.check_available(enter_msg['is_bid'], enter_msg['price'], enter_msg['volume'], asset_name):
+            if enter_msg['is_bid']:
                 self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available cash')
-                return
-            if not enter_msg['is_bid'] and player.available_assets[asset_name] < enter_msg['volume']:
+            if not enter_msg['is_bid']:
                 if self.subsession.single_asset:
                     self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available assets')
                 else:
                     self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available amount of asset {}'.format(asset_name))
-                return
+            return
 
         exchange = self.exchanges.get(asset_name=asset_name)
         order_id = exchange.enter_order(
@@ -132,16 +131,15 @@ class Group(RedwoodGroup):
         '''handle an immediate accept message sent from the frontend'''
         player = self._get_player(sender_pcode)
 
-        if not self.subsession.allow_short():
-            if accepted_order['is_bid'] and player.available_cash < accepted_order['price'] * accepted_order['volume']:
-                self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available cash')
-                return
-            if not accepted_order['is_bid'] and player.available_assets[accepted_order['asset_name']] < accepted_order['volume']:
+        if not player.check_available(not accepted_order['is_bid'], accepted_order['price'], accepted_order['volume'], accepted_order['asset_name']):
+            if accepted_order['is_bid']:
                 if self.subsession.single_asset:
                     self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available assets')
                 else:
                     self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order['asset_name']))
-                return
+            else:
+                self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available cash')
+            return
 
         exchange = self.exchanges.get(asset_name=accepted_order['asset_name'])
         exchange.accept_immediate(
@@ -279,6 +277,16 @@ class Player(BasePlayer):
             
             self.available_cash += price * volume
             self.settled_cash += price * volume
+    
+    def check_available(self, is_bid, price, volume, asset_name):
+        '''check whether this player has enough available holdings to enter an order'''
+        if self.subsession.allow_short():
+            return True
+        if is_bid and self.available_cash < price * volume:
+            return False
+        elif not is_bid and self.available_assets[asset_name] < volume:
+            return False
+        return True
 
     # jsonfield is broken, it needs this special hack to get saved correctly
     # for more info see https://github.com/Leeps-Lab/otree-redwood/blob/master/otree_redwood/models.py#L167
