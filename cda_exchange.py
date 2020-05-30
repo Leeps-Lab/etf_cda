@@ -4,10 +4,10 @@ from django.contrib.contenttypes.models import ContentType
 
 from itertools import chain
 
-class Exchange(models.Model):
+class CDAExchange(models.Model):
     '''this model represents a continuous double auction exchange'''
 
-    # Exchange has additional fields 'trades' and 'orders'
+    # CDAExchange has additional fields 'trades' and 'orders'
     # these are related names from ForeignKey fields on Trade and Order
 
     class Meta:
@@ -15,9 +15,9 @@ class Exchange(models.Model):
         unique_together = ('asset_name', 'content_type', 'object_id')
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    '''used to relate this Exchange to an arbitrary Group'''
+    '''used to relate this exchange to an arbitrary Group'''
     object_id = models.PositiveIntegerField()
-    '''primary key of this Exchange's related Group'''
+    '''primary key of this exchange's related Group'''
     group = GenericForeignKey('content_type', 'object_id')
     '''the Group this exchange is associated with'''
 
@@ -209,7 +209,7 @@ class Order(models.Model):
     # true if this is a bid, false if it's an ask
     is_bid    = models.BooleanField()
     # the exchange object associated with this order
-    exchange  = models.ForeignKey(Exchange, related_name='orders', on_delete=models.CASCADE)
+    exchange  = models.ForeignKey(CDAExchange, related_name='orders', on_delete=models.CASCADE)
     # the participant code for the player who submitted this order
     pcode     = models.CharField(max_length=16)
     # the portion of this trade's volume which was actually traded
@@ -253,7 +253,7 @@ class Trade(models.Model):
     # the time this trade occured
     timestamp = models.DateTimeField(auto_now_add=True)
     # the exchange this trade happened in
-    exchange  = models.ForeignKey('Exchange', related_name='trades', on_delete=models.CASCADE)
+    exchange  = models.ForeignKey('CDAExchange', related_name='trades', on_delete=models.CASCADE)
     # this is the order that triggered this trade
     taking_order = models.OneToOneField('Order', related_name='taking_trade', on_delete=models.CASCADE)
     # trades have a related name 'making_orders' from Order. this is a set of all the orders involved in this trade

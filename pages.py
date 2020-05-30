@@ -3,7 +3,8 @@ import json
 
 class BaseMarketPage(Page):
 
-    def vars_for_template(self):
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
         bids = []
         asks = []
         trades = []
@@ -19,7 +20,7 @@ class BaseMarketPage(Page):
                     'taking_order': trade.taking_order.as_dict(),
                     'making_orders': trade.get_making_orders_dicts(),
                 })
-        return {
+        context.update({
             'trader_state': {
                 'time_remaining': self.group.get_remaining_time(),
                 'bids': json.dumps(bids),
@@ -30,4 +31,5 @@ class BaseMarketPage(Page):
                 'available_cash': self.player.available_cash,
                 'settled_cash': self.player.settled_cash,
             }
-        }
+        })
+        return context

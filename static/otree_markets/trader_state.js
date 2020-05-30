@@ -177,6 +177,10 @@ class TraderState extends PolymerElement {
             this._insert_ask(order);
         }
 
+        if (order.pcode == this.pcode) {
+            this.update_holdings_available(order, false);
+        }
+
         this.dispatchEvent(new CustomEvent('confirm-order-enter', {detail: order, bubbles: true, composed: true}));
     }
 
@@ -186,10 +190,11 @@ class TraderState extends PolymerElement {
         // update your cash and assets appropriately
         for (const making_order of msg.making_orders) {
             if (making_order.pcode == this.pcode) {
-                this._update_holdings(making_order.price, making_order.traded_volume, making_order.is_bid, making_order.asset_name);
+                this.update_holdings_available(making_order, true);
+                this.update_holdings_trade(making_order.price, making_order.traded_volume, making_order.is_bid, making_order.asset_name);
             }
             if (msg.taking_order.pcode == this.pcode) {
-                this._update_holdings(making_order.price, making_order.traded_volume, msg.taking_order.is_bid, msg.taking_order.asset_name);
+                this.update_holdings_trade(making_order.price, making_order.traded_volume, msg.taking_order.is_bid, msg.taking_order.asset_name);
             }
             this._remove_order(making_order)
         }
@@ -210,40 +215,18 @@ class TraderState extends PolymerElement {
         this.dispatchEvent(new CustomEvent('confirm-trade', {detail: trade, bubbles: true, composed: true}));
     }
 
-    // update this player's holdings when a trade occurs
-    _update_holdings(price, volume, is_bid, asset_name) {
-        if (is_bid) {
-            this._update_subproperty('availableAssetsDict', asset_name, volume);
-            this._update_subproperty('settledAssetsDict', asset_name, volume);
-
-            this.availableCash -= price * volume;
-            this.settledCash -= price * volume;
-        }
-        else {
-            this._update_subproperty('availableAssetsDict', asset_name, -volume);
-            this._update_subproperty('settledAssetsDict', asset_name, -volume);
-
-            this.availableCash += price * volume;
-            this.settledCash += price * volume;
-        }
-    }
-
     // handle an incoming cancel confirmation message
     _handle_confirm_cancel(msg) {
         const order = msg;
         this._remove_order(order);
         if (order.pcode == this.pcode) {
-            if (order.is_bid) {
-                this.availableCash += order.price * order.volume;
-            }
-            else {
-                this._update_subproperty('availableAssetsDict', order.asset_name, order.volume);
-            }
+            this.update_holdings_available(order, true);
         }
 
         this.dispatchEvent(new CustomEvent('confirm-order-cancel', {detail: order, bubbles: true, composed: true}));
     }
 
+    // removes an order from the bid/ask array
     _remove_order(order) {
         const order_store_name = order.is_bid ? 'bids' : 'asks';
         const order_store = this.get(order_store_name);
@@ -283,10 +266,6 @@ class TraderState extends PolymerElement {
                 break;
         }
         this.splice('bids', i, 0, order);
-
-        if (order.pcode == this.pcode) {
-            this.availableCash -= order.price * order.volume;
-        }
     }
 
     // insert an ask into the asks array in ascending order
@@ -297,10 +276,34 @@ class TraderState extends PolymerElement {
                 break;
         }
         this.splice('asks', i, 0, order);
+    }
 
-        if (order.pcode == this.pcode) {
-            this._update_subproperty('availableAssetsDict', order.asset_name, -order.volume);
+    // update this player's holdings when a trade occurs
+    update_holdings_trade(price, volume, is_bid, asset_name) {
+        if (is_bid) {
+            this._update_subproperty('availableAssetsDict', asset_name, volume);
+            this._update_subproperty('settledAssetsDict', asset_name, volume);
+
+            this.availableCash -= price * volume;
+            this.settledCash -= price * volume;
         }
+        else {
+            this._update_subproperty('availableAssetsDict', asset_name, -volume);
+            this._update_subproperty('settledAssetsDict', asset_name, -volume);
+
+            this.availableCash += price * volume;
+            this.settledCash += price * volume;
+        }
+    }
+
+    // update this player's available holdings when an order is inserted/removed
+    // removed is true when an order was removed and false when it was added
+    update_holdings_available(order, removed) {
+        const sign = removed ? 1 : -1;
+        if (order.is_bid)
+            this.availableCash += order.price * order.volume * sign;
+        else
+            this._update_subproperty('availableAssetsDict', order.asset_name, order.volume * sign)
     }
 
     _update_subproperty(property, subproperty, amount) {

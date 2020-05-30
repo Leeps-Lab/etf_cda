@@ -1,8 +1,9 @@
+from __future__ import annotations
 from otree.api import (
     models, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
-from .exchange import Exchange
+from .cda_exchange import CDAExchange
 from . import validate
 from jsonfield import JSONField
 from django.utils import timezone
@@ -31,22 +32,22 @@ class Subsession(BaseSubsession):
         '''override this method to allow players to have negative holdings'''
         return False
 
-    def creating_session(self):
+    def create_exchanges(self):
         asset_names = self.asset_names()
 
-        # if we're in single asset mode
-        if asset_names is None:
-            for group in self.get_groups():
+        for group in self.get_groups():
+            # if we're in single asset mode
+            if asset_names is None:
                 group.exchanges.create(asset_name=SINGLE_ASSET_NAME)
-            for player in self.get_players():
-                player.set_endowments()
-        # if we're in multiple asset mode
-        else:
-            for group in self.get_groups():
+            # if we're in multiple asset mode
+            else:
                 for name in asset_names:
                     group.exchanges.create(asset_name=name)
-            for player in self.get_players():
-                player.set_endowments()
+        for player in self.get_players():
+            player.set_endowments()
+
+    def creating_session(self):
+        self.create_exchanges()
 
 
 class Group(RedwoodGroup):
@@ -54,7 +55,7 @@ class Group(RedwoodGroup):
     class Meta(RedwoodGroup.Meta):
         abstract = True
 
-    exchange_class = Exchange
+    exchange_class = CDAExchange
     exchanges = GenericRelation(exchange_class)
     '''a queryset of all the exchanges associated with this group'''
 
@@ -68,7 +69,7 @@ class Group(RedwoodGroup):
         else:
             return period_length
 
-    def _get_player(self, pcode):
+    def _get_player(self, pcode) -> Player:
         '''get a player object given its participant code'''
         for player in self.get_players():
             if player.participant.code == pcode:
@@ -153,10 +154,7 @@ class Group(RedwoodGroup):
         '''send an order entry confirmation to the frontend. this function is called
         by the exchange when an order is successfully entered'''
         player = self._get_player(order_dict['pcode'])
-        if order_dict['is_bid']:
-            player.available_cash -= order_dict['price'] * order_dict['volume']
-        else:
-            player.available_assets[order_dict['asset_name']] -= order_dict['volume']
+        player.update_holdings_available(order_dict, False)
         player.save()
 
         confirm_msg = {
@@ -173,15 +171,12 @@ class Group(RedwoodGroup):
             making_player = self._get_player(making_order['pcode'])
             # need to update making players' available cash and assets
             # since these were adjusted when their order was entered, they need to be adjusted back so they're not double counted
-            if making_order['is_bid']:
-                making_player.available_cash += making_order['price'] * making_order['volume']
-            else:
-                making_player.available_assets[making_order['asset_name']] += making_order['volume']
+            making_player.update_holdings_available(making_order, True)
 
             volume = making_order['traded_volume']
             price = making_order['price']
-            making_player.update_holdings(price, volume, making_order['is_bid'], making_order['asset_name'])
-            taking_player.update_holdings(price, volume, taking_order['is_bid'], taking_order['asset_name'])
+            making_player.update_holdings_trade(price, volume, making_order['is_bid'], making_order['asset_name'])
+            taking_player.update_holdings_trade(price, volume, taking_order['is_bid'], taking_order['asset_name'])
 
             making_player.save()
         taking_player.save()
@@ -201,10 +196,7 @@ class Group(RedwoodGroup):
         '''send an order cancel confirmation to the frontend. this function is called
         by the exchange when an order is successfully canceled'''
         player = self._get_player(order_dict['pcode'])
-        if order_dict['is_bid']:
-            player.available_cash += order_dict['price'] * order_dict['volume']
-        else:
-            player.available_assets[order_dict['asset_name']] += order_dict['volume']
+        player.update_holdings_available(order_dict, True)
         player.save()
 
         confirm_msg = {
@@ -261,10 +253,20 @@ class Player(BasePlayer):
         self.available_cash = cash_endowment
 
         self.save()
+    
+    def update_holdings_available(self, order_dict, removed):
+        '''update this player's available holdings (cash or assets) when they enter or remove an order.
+        param order_dict is the changed order belonging to this player.
+        param removed is true when the changed order was removed and false when the changed order was added'''
+        sign = 1 if removed else -1
+        if order_dict['is_bid']:
+            self.available_cash += order_dict['price'] * order_dict['volume'] * sign
+        else:
+            self.available_assets[order_dict['asset_name']] += order_dict['volume'] * sign
 
-    def update_holdings(self, price, volume, is_bid, asset_name):
+    def update_holdings_trade(self, price, volume, is_bid, asset_name):
         '''update this player's holdings (cash and assets) after a trade occurs.
-        params price, volume and is_bid reflect the transacted order belonging to this player'''
+        params price, volume, is_bid, and asset_name reflect the type/amount that was transacted'''
         if is_bid:
             self.available_assets[asset_name] += volume
             self.settled_assets[asset_name] += volume
