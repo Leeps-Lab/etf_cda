@@ -1,0 +1,49 @@
+{% extends "otree/BaseAdmin.html" %}
+{% load static otree %}
+
+{% block title %}
+  {{ session_config.display_name }} Data Export
+{% endblock %}
+
+{% block scripts %}
+    <script>
+        $(document).ready(function() {
+            $('tr.demo').toggle($('#show_demo').prop('checked'));
+
+            $('#show_demo').on('click', function() {
+                const checked = $(this).prop('checked');
+                $('tr.demo').toggle(checked);
+            });
+        })
+    </script>
+{% endblock %}
+
+{% block content %}
+
+    <div>
+        <label for="show_demo">Show Demo Sessions</label>
+        <input type="checkbox" id="show_demo">
+    </div>
+
+    <table class="table">
+        <tr>
+            <th>Session Code</th>
+            <!-- <th></th> -->
+            <th></th>
+        </tr>
+        {% for session in sessions %}
+        <tr class="{{ session.is_demo|yesno:'demo,' }}">
+            <td>{{ session.code }}</td>
+            <!-- <td>
+                <a href="{% url 'markets_export_csv_'|add:session_config.name session_code=session.code %}"
+                   class="download-link">get csv</a>
+            </td> -->
+            <td>
+                <a href="{% url 'markets_export_json_'|add:session_config.name session_code=session.code %}"
+                   class="download-link">get json</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+
+{% endblock %}
