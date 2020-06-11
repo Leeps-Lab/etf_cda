@@ -120,5 +120,5 @@ for session_config in SESSION_CONFIGS_DICT.values():
         continue
     if issubclass(group_cls, MarketGroup):
         markets_export_views.append(make_sessions_view(session_config))
-        export_urls.append(make_csv_export_path(session_config))
-        export_urls.append(make_json_export_path(session_config))
+        markets_export_urls.append(make_csv_export_path(session_config))
+        markets_export_urls.append(make_json_export_path(session_config))
