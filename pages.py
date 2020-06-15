@@ -20,9 +20,10 @@ class BaseMarketPage(Page):
                     'taking_order': trade.taking_order.as_dict(),
                     'making_orders': trade.get_making_orders_dicts(),
                 })
+        remaining_time = self.group.get_remaining_time()
         context.update({
             'trader_state': {
-                'time_remaining': self.group.get_remaining_time(),
+                'time_remaining': round(remaining_time) if remaining_time else remaining_time,
                 'bids': json.dumps(bids),
                 'asks': json.dumps(asks),
                 'trades': json.dumps(trades),
