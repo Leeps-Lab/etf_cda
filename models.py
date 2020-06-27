@@ -56,6 +56,8 @@ class Group(RedwoodGroup):
         abstract = True
 
     exchange_class = CDAExchange
+    '''the class used to create the exchanges for this group.
+    change this property to swap out a different exchange implementation'''
     exchanges = GenericRelation(exchange_class)
     '''a queryset of all the exchanges associated with this group'''
 
@@ -69,8 +71,9 @@ class Group(RedwoodGroup):
         else:
             return period_length
 
-    def _get_player(self, pcode) -> Player:
-        '''get a player object given its participant code'''
+    def get_player(self, pcode) -> Player:
+        '''get a player object given its participant code. can be overridden to return None for certain pcodes.
+        this may be useful for bots or other situations where fake players are needed'''
         for player in self.get_players():
             if player.participant.code == pcode:
                 return player
@@ -94,10 +97,10 @@ class Group(RedwoodGroup):
 
     def _handle_enter(self, enter_msg):
         '''handle an enter message sent from the frontend'''
-        player = self._get_player(enter_msg['pcode'])
+        player = self.get_player(enter_msg['pcode'])
         asset_name = SINGLE_ASSET_NAME if self.subsession.single_asset else enter_msg['asset_name']
 
-        if not player.check_available(enter_msg['is_bid'], enter_msg['price'], enter_msg['volume'], asset_name):
+        if player and not player.check_available(enter_msg['is_bid'], enter_msg['price'], enter_msg['volume'], asset_name):
             if enter_msg['is_bid']:
                 self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available cash')
             if not enter_msg['is_bid']:
@@ -129,9 +132,9 @@ class Group(RedwoodGroup):
 
     def _handle_accept_immediate(self, accepted_order, sender_pcode):
         '''handle an immediate accept message sent from the frontend'''
-        player = self._get_player(sender_pcode)
+        player = self.get_player(sender_pcode)
 
-        if not player.check_available(not accepted_order['is_bid'], accepted_order['price'], accepted_order['volume'], accepted_order['asset_name']):
+        if player and not player.check_available(not accepted_order['is_bid'], accepted_order['price'], accepted_order['volume'], accepted_order['asset_name']):
             if accepted_order['is_bid']:
                 if self.subsession.single_asset:
                     self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available assets')
@@ -151,9 +154,10 @@ class Group(RedwoodGroup):
     def confirm_enter(self, order_dict):
         '''send an order entry confirmation to the frontend. this function is called
         by the exchange when an order is successfully entered'''
-        player = self._get_player(order_dict['pcode'])
-        player.update_holdings_available(order_dict, False)
-        player.save()
+        player = self.get_player(order_dict['pcode'])
+        if player:
+            player.update_holdings_available(order_dict, False)
+            player.save()
 
         confirm_msg = {
             'type': 'confirm_enter',
@@ -164,20 +168,21 @@ class Group(RedwoodGroup):
     def handle_trade(self, timestamp, asset_name, taking_order, making_orders):
         '''send a trade confirmation to the frontend. this function is called by the exchange when a trade occurs'''
 
-        taking_player = self._get_player(taking_order['pcode'])
+        taking_player = self.get_player(taking_order['pcode'])
         for making_order in making_orders:
-            making_player = self._get_player(making_order['pcode'])
-            # need to update making players' available cash and assets
-            # since these were adjusted when their order was entered, they need to be adjusted back so they're not double counted
-            making_player.update_holdings_available(making_order, True)
-
+            making_player = self.get_player(making_order['pcode'])
             volume = making_order['traded_volume']
             price = making_order['price']
-            making_player.update_holdings_trade(price, volume, making_order['is_bid'], making_order['asset_name'])
-            taking_player.update_holdings_trade(price, volume, taking_order['is_bid'], taking_order['asset_name'])
-
-            making_player.save()
-        taking_player.save()
+            if making_player:
+                # need to update making players' available cash and assets
+                # since these were adjusted when their order was entered, they need to be adjusted back so they're not double counted
+                making_player.update_holdings_available(making_order, True)
+                making_player.update_holdings_trade(price, volume, making_order['is_bid'], making_order['asset_name'])
+                making_player.save()
+            if taking_player:
+                taking_player.update_holdings_trade(price, volume, taking_order['is_bid'], taking_order['asset_name'])
+        if taking_player:
+            taking_player.save()
 
         confirm_msg = {
             'type': 'confirm_trade',
@@ -193,9 +198,10 @@ class Group(RedwoodGroup):
     def confirm_cancel(self, order_dict):
         '''send an order cancel confirmation to the frontend. this function is called
         by the exchange when an order is successfully canceled'''
-        player = self._get_player(order_dict['pcode'])
-        player.update_holdings_available(order_dict, True)
-        player.save()
+        player = self.get_player(order_dict['pcode'])
+        if player:
+            player.update_holdings_available(order_dict, True)
+            player.save()
 
         confirm_msg = {
             'type': 'confirm_cancel',
