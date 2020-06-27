@@ -1,6 +1,11 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 import '/static/otree-redwood/src/redwood-period/redwood-period.js';
 
+/*
+    this component adds a gray overlay to the screen that prevents players from interacting with the interface
+    before the round has started. it uses redwood-period to hook into the period-start and period-end events.
+*/
+
 class DisableInterfaceOverlay extends PolymerElement {
 
     static get template() {
