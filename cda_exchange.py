@@ -52,7 +52,7 @@ class CDAExchange(models.Model):
         try:
             return orders.get(id=order_id)
         except Order.DoesNotExist as e:
-            raise ValueError('order with id {} not found'.format(order_id)) from e
+            raise ValueError(f'active {"bid" if is_bid else "ask"} with id {order_id} not found') from e
 
     def enter_order(self, price, volume, is_bid, pcode):
         '''enter a bid or ask into the exchange'''
@@ -68,6 +68,18 @@ class CDAExchange(models.Model):
         else:
             self._handle_insert_ask(order)
     
+    def enter_market_order(self, volume, is_bid, pcode):
+        '''enter a market order into the exchange
+        
+        a market bid has effective price 0 and a market ask has effective price infinity.
+        additionally, market orders are not entered into the book if they don't immediately
+        transact'''
+        if is_bid:
+            self._handle_bid_market_order(volume, pcode)
+        else:
+            self._handle_ask_market_order(volume, pcode)
+    
+
     def cancel_order(self, is_bid, order_id):
         '''cancel an already entered order'''
         canceled_order = self._get_order(is_bid, order_id)
@@ -169,6 +181,79 @@ class CDAExchange(models.Model):
             pcode     = order.pcode
         )
         self._send_enter_confirmation(new_order)
+
+    def _handle_bid_market_order(self, volume, pcode):
+        '''enter a bid market order'''
+        # if there are no asks, just exit without doing anything
+        if volume == 0 or not self._get_best_ask():
+            return
+        
+        taking_order = self.orders.create(
+            active = False,
+            price  = 0,
+            # this price field doesn't really matter, but it makes sense that a bid market order would have
+            # the min possible price
+            volume = volume,
+            is_bid = True,
+            pcode  = pcode,
+        )
+        trade = self.trades.create(taking_order=taking_order)
+
+        asks = self._get_asks_qset()
+        cur_volume = volume
+        for ask in asks:
+            if cur_volume == 0:
+                break
+            if cur_volume >= ask.volume:
+                cur_volume -= ask.volume
+                ask.traded_volume = ask.volume
+            else:
+                self._enter_partial(ask, ask.volume - cur_volume)
+                ask.traded_volume = cur_volume
+                cur_volume = 0
+            ask.making_trade = trade
+            ask.active = False
+            ask.save()
+        taking_order.traded_volume = volume - cur_volume
+        taking_order.save()
+        self._send_trade_confirmation(trade)
+
+    def _handle_ask_market_order(self, volume, pcode):
+        '''enter an ask market order'''
+        # if there are no asks, just exit without doing anything
+        if volume == 0 or not self._get_best_bid():
+            return
+
+        taking_order = self.orders.create(
+            active = False,
+            price  = 0x7FFFFFFF, 
+            # this is the max 4-byte signed integer, the biggest number IntegerField can hold
+            # this price field doesn't really matter, but it makes sense that an ask market order would have
+            # the max possible price
+            volume = volume,
+            is_bid = False,
+            pcode  = pcode,
+        )
+        trade = self.trades.create(taking_order=taking_order)
+
+        bids = self._get_bids_qset()
+        cur_volume = volume
+        for bid in bids:
+            if cur_volume == 0:
+                break
+            if cur_volume >= bid.volume:
+                cur_volume -= bid.volume
+                bid.traded_volume = bid.volume
+            else:
+                self._enter_partial(bid, bid.volume - cur_volume)
+                bid.traded_volume = cur_volume
+                cur_volume = 0
+            bid.making_trade = trade
+            bid.active = False
+            bid.save()
+        taking_order.traded_volume = volume - cur_volume
+        taking_order.save()
+        self._send_trade_confirmation(trade)
     
     def _send_enter_confirmation(self, order):
         '''send an order enter confirmation to the group'''
