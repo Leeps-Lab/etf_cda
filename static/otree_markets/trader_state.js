@@ -19,7 +19,6 @@ export class TraderState extends PolymerElement {
                 type: Array,
                 value: TRADER_STATE.bids,
                 notify: true,
-                reflectToAttribute: true,
             },
             // array of ask order objects
             // ordered by price ascending, then timestamp
@@ -27,7 +26,6 @@ export class TraderState extends PolymerElement {
                 type: Array,
                 value: TRADER_STATE.asks,
                 notify: true,
-                reflectToAttribute: true,
             },
             // array of trade objects
             // ordered by timestamp
@@ -35,49 +33,42 @@ export class TraderState extends PolymerElement {
                 type: Array,
                 value: TRADER_STATE.trades,
                 notify: true,
-                reflectToAttribute: true,
             },
             // dict mapping asset names to this player's settled amount of that asset
             settledAssetsDict: {
                 type: Object,
                 value: TRADER_STATE.settled_assets,
                 notify: true,
-                reflectToAttribute: true,
             },
             // when in single-asset mode, this property is the settled amount of that one asset
             settledAssets: {
                 type: Number,
                 value: null,
                 notify: true,
-                reflectToAttribute: true,
             },
             // dict mapping asset names to this player's available amount of that asset
             availableAssetsDict: {
                 type: Object,
                 value: TRADER_STATE.available_assets,
                 notify: true,
-                reflectToAttribute: true,
             },
             // when in single-asset mode, this property is the available amount of that one asset
             availableAssets: {
                 type: Number,
                 value: null,
                 notify: true,
-                reflectToAttribute: true,
             },
             // this player's settled cash
             settledCash: {
                 type: Number,
                 value: TRADER_STATE.settled_cash,
                 notify: true,
-                reflectToAttribute: true,
             },
             // this player's available cash
             availableCash: {
                 type: Number,
                 value: TRADER_STATE.available_cash,
                 notify: true,
-                reflectToAttribute: true,
             },
             // the amount of time remaining in this round of trading in seconds if period_length is set, null otherwise
             // updated once a second
@@ -85,7 +76,6 @@ export class TraderState extends PolymerElement {
                 type: Number,
                 value: TRADER_STATE.time_remaining,
                 notify: true,
-                reflectToAttribute: true,
             },
         }
     }
