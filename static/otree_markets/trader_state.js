@@ -92,11 +92,38 @@ export class TraderState extends PolymerElement {
 
     static get template() {
         return html`
+            <!-- outbound channels -->
             <redwood-channel
-                id="chan"
-                channel="chan"
-                on-event="_on_message"
+                id="enter_chan"
+                channel="enter"
             ></redwood-channel>
+            <redwood-channel
+                id="cancel_chan"
+                channel="cancel"
+            ></redwood-channel>
+            <redwood-channel
+                id="accept_chan"
+                channel="accept"
+            ></redwood-channel>
+
+            <!-- inbound channels -->
+            <redwood-channel
+                channel="confirm_enter"
+                on-event="_handle_confirm_enter"
+            ></redwood-channel>
+            <redwood-channel
+                channel="confirm_trade"
+                on-event="_handle_confirm_trade"
+            ></redwood-channel>
+            <redwood-channel
+                channel="confirm_cancel"
+                on-event="_handle_confirm_cancel"
+            ></redwood-channel>
+            <redwood-channel
+                channel="error"
+                on-event="_handle_error"
+            ></redwood-channel>
+
             <otree-constants
                 id="constants"
             ></otree-constants>
@@ -116,60 +143,32 @@ export class TraderState extends PolymerElement {
             this._createComputedProperty('settledAssets', '_compute_single_asset(settledAssetsDict.*)', true);
             this._createComputedProperty('availableAssets', '_compute_single_asset(availableAssetsDict.*)', true);
         }
-
-        // maps incoming message types to their appropriate handler
-        this.message_handlers = {
-            confirm_enter: this._handle_confirm_enter,
-            confirm_trade: this._handle_confirm_trade,
-            confirm_cancel: this._handle_confirm_cancel,
-            error: this._handle_error,
-        };
     }
 
     // call this method to send an order enter message to the backend
     enter_order(price, volume, is_bid, asset_name=null) {
-        this.$.chan.send({
-            type: 'enter',
-            payload: {
-                price: price,
-                volume: volume,
-                is_bid: is_bid,
-                asset_name: asset_name,
-                pcode: this.pcode,
-            }
+        this.$.enter_chan.send({
+            price: price,
+            volume: volume,
+            is_bid: is_bid,
+            asset_name: asset_name,
+            pcode: this.pcode,
         });
     }
 
     // call this method to send an order cancel message to the backend
     cancel_order(order) {
-        this.$.chan.send({
-            type: 'cancel',
-            payload: order,
-        });
+        this.$.cancel_chan.send(order);
     }
 
     // call this method to send an immediate accept message to the backend
     accept_order(order) {
-        this.$.chan.send({
-            type: 'accept_immediate',
-            payload: order
-        });
-    }
-
-    // main entry point for inbound messages. dispatches messages
-    // to the appropriate handler
-    _on_message(event) {
-        const msg = event.detail.payload;
-        const handler = this.message_handlers[msg.type];
-        if (!handler) {
-            throw `error: invalid message type: ${msg.type}`;
-        }
-        handler.call(this, msg.payload);
+        this.$.accept_chan.send(order);
     }
 
     // handle an incoming order entry confirmation
-    _handle_confirm_enter(msg) {
-        const order = msg;
+    _handle_confirm_enter(event) {
+        const order = event.detail.payload;
         if (order.is_bid) {
             this._insert_bid(order);
         }
@@ -185,30 +184,25 @@ export class TraderState extends PolymerElement {
     }
 
     // handle an incoming trade confirmation
-    _handle_confirm_trade(msg) {
+    _handle_confirm_trade(event) {
+        const trade = event.detail.payload;
         // iterate through making orders from this trade. if a making order is yours or the taking order is yours,
         // update your cash and assets appropriately
-        for (const making_order of msg.making_orders) {
+        for (const making_order of trade.making_orders) {
             if (making_order.pcode == this.pcode) {
                 this.update_holdings_available(making_order, true);
                 this.update_holdings_trade(making_order.price, making_order.traded_volume, making_order.is_bid, making_order.asset_name);
             }
-            if (msg.taking_order.pcode == this.pcode) {
-                this.update_holdings_trade(making_order.price, making_order.traded_volume, msg.taking_order.is_bid, msg.taking_order.asset_name);
+            if (trade.taking_order.pcode == this.pcode) {
+                this.update_holdings_trade(making_order.price, making_order.traded_volume, trade.taking_order.is_bid, trade.taking_order.asset_name);
             }
             this._remove_order(making_order)
         }
 
-        // make a new trade object and sorted-ly insert it into the trades list
-        const trade = {
-            timestamp: msg.timestamp,
-            asset_name: msg.asset_name,
-            taking_order: msg.taking_order,
-            making_orders: msg.making_orders,
-        }
+        // sorted insert trade into trades list
         let i;
         for (; i < this.trades.length; i++)
-            if (this.trades[i].timestamp > msg.timestamp)
+            if (this.trades[i].timestamp > trade.timestamp)
                 break;
         this.splice('trades', i, 0, trade);
 
@@ -217,7 +211,7 @@ export class TraderState extends PolymerElement {
 
     // handle an incoming cancel confirmation message
     _handle_confirm_cancel(msg) {
-        const order = msg;
+        const order = msg.detail.payload;
         this._remove_order(order);
         if (order.pcode == this.pcode) {
             this.update_holdings_available(order, true);

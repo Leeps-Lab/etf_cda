@@ -68,25 +68,10 @@ class Group(RedwoodGroup):
             if player.participant.code == pcode:
                 return player
         raise ValueError('invalid player code: "{}"'.format(pcode))
-    
-    def _on_chan_event(self, event):
-        '''the entry point for all incoming (frontend -> backend) messages.
-        dispatches messages to their appropriate handler using their type field'''
-        msg = event.value
-        if msg['type'] == 'enter':
-            validate.validate_enter(msg['payload'])
-            self._handle_enter(msg['payload'])
-        elif msg['type'] == 'cancel':
-            validate.validate_cancel(msg['payload'])
-            self._handle_cancel(msg['payload'], event.participant.code)
-        elif msg['type'] == 'accept_immediate':
-            validate.validate_accept_immediate(msg['payload'])
-            self._handle_accept_immediate(msg['payload'], event.participant.code)
-        else:
-            raise ValueError('invalid inbound message type: "{}"'.format(msg['type']))
 
-    def _handle_enter(self, enter_msg):
+    def _on_enter_event(self, event):
         '''handle an enter message sent from the frontend'''
+        enter_msg = event.value
         player = self.get_player(enter_msg['pcode'])
         asset_name = enter_msg['asset_name'] if enter_msg['asset_name'] else SINGLE_ASSET_NAME
 
@@ -108,9 +93,10 @@ class Group(RedwoodGroup):
             enter_msg['pcode'],
         )
     
-    def _handle_cancel(self, canceled_order, sender_pcode):
+    def _on_cancel_event(self, event):
         '''handle a cancel message sent from the frontend'''
-        if canceled_order['pcode'] != sender_pcode:
+        canceled_order = event.value
+        if canceled_order['pcode'] != event.participant.code:
             print('cancel rejected: players can\'t cancel others\' orders')
             return
 
@@ -120,9 +106,10 @@ class Group(RedwoodGroup):
             canceled_order['order_id'],
         )
 
-    def _handle_accept_immediate(self, accepted_order, sender_pcode):
+    def _on_accept_event(self, event):
         '''handle an immediate accept message sent from the frontend'''
-        player = self.get_player(sender_pcode)
+        accepted_order = event.value
+        player = self.get_player(event.participant.code)
 
         if player and not player.check_available(not accepted_order['is_bid'], accepted_order['price'], accepted_order['volume'], accepted_order['asset_name']):
             if accepted_order['is_bid']:
@@ -138,7 +125,7 @@ class Group(RedwoodGroup):
         exchange.accept_immediate(
             accepted_order['is_bid'],
             accepted_order['order_id'],
-            sender_pcode,
+            event.participant.code,
         )
 
     def confirm_enter(self, order_dict):
@@ -149,11 +136,7 @@ class Group(RedwoodGroup):
             player.update_holdings_available(order_dict, False)
             player.save()
 
-        confirm_msg = {
-            'type': 'confirm_enter',
-            'payload': order_dict,
-        }
-        self.send('chan', confirm_msg)
+        self.send('confirm_enter', order_dict)
 
     def handle_trade(self, timestamp, asset_name, taking_order, making_orders):
         '''send a trade confirmation to the frontend. this function is called by the exchange when a trade occurs'''
@@ -174,16 +157,12 @@ class Group(RedwoodGroup):
         if taking_player:
             taking_player.save()
 
-        confirm_msg = {
-            'type': 'confirm_trade',
-            'payload': {
-                'timestamp': timestamp,
-                'asset_name': asset_name,
-                'taking_order': taking_order,
-                'making_orders': making_orders,
-            }
-        }
-        self.send('chan', confirm_msg)
+        self.send('confirm_trade', {
+            'timestamp': timestamp,
+            'asset_name': asset_name,
+            'taking_order': taking_order,
+            'making_orders': making_orders,
+        })
     
     def confirm_cancel(self, order_dict):
         '''send an order cancel confirmation to the frontend. this function is called
@@ -193,22 +172,14 @@ class Group(RedwoodGroup):
             player.update_holdings_available(order_dict, True)
             player.save()
 
-        confirm_msg = {
-            'type': 'confirm_cancel',
-            'payload': order_dict,
-        }
-        self.send('chan', confirm_msg)
+        self.send('confirm_cancel', order_dict)
     
     def _send_error(self, pcode, message):
         '''send an error message to a player'''
-        error_msg = {
-            'type': 'error',
-            'payload': {
-                'pcode': pcode,
-                'message': message,
-            }
-        }
-        self.send('chan', error_msg)
+        self.send('error', {
+            'pcode': pcode,
+            'message': message,
+        })
 
 
 class Player(BasePlayer):
