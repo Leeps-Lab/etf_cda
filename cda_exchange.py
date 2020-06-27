@@ -296,7 +296,7 @@ class Order(models.Model):
     # the exchange object associated with this order
     exchange  = models.ForeignKey(CDAExchange, related_name='orders', on_delete=models.CASCADE)
     # the participant code for the player who submitted this order
-    pcode     = models.CharField(max_length=16)
+    pcode     = models.CharField(max_length=32)
     # the portion of this trade's volume which was actually traded
     # this is used for partially filled orders
     traded_volume = models.IntegerField(null=True)
