@@ -9,8 +9,8 @@ from jsonfield import JSONField
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
 
-# this is the name of the only asset when in single asset mode
 SINGLE_ASSET_NAME = 'A'
+'''the name of the only asset when in single-asset mode'''
 
 class Subsession(BaseSubsession):
 
@@ -21,13 +21,8 @@ class Subsession(BaseSubsession):
         '''this method describes the asset structure of an experiment.
         if defined, it should return an array of names for each asset. one exchange will be created for each asset name
         represented in this array. if not defined, one exchange is created and the game is configured for a single asset'''
-        return None
+        return [SINGLE_ASSET_NAME]
     
-    @property
-    def single_asset(self):
-        '''return true if subsession is in single asset mode'''
-        return self.asset_names() is None
-
     def allow_short(self):
         '''override this method to allow players to have negative holdings'''
         return False
@@ -36,13 +31,8 @@ class Subsession(BaseSubsession):
         asset_names = self.asset_names()
 
         for group in self.get_groups():
-            # if we're in single asset mode
-            if asset_names is None:
-                group.exchanges.create(asset_name=SINGLE_ASSET_NAME)
-            # if we're in multiple asset mode
-            else:
-                for name in asset_names:
-                    group.exchanges.create(asset_name=name)
+            for name in asset_names:
+                group.exchanges.create(asset_name=name)
         for player in self.get_players():
             player.set_endowments()
 
@@ -98,13 +88,13 @@ class Group(RedwoodGroup):
     def _handle_enter(self, enter_msg):
         '''handle an enter message sent from the frontend'''
         player = self.get_player(enter_msg['pcode'])
-        asset_name = SINGLE_ASSET_NAME if self.subsession.single_asset else enter_msg['asset_name']
+        asset_name = enter_msg['asset_name'] if enter_msg['asset_name'] else SINGLE_ASSET_NAME
 
         if player and not player.check_available(enter_msg['is_bid'], enter_msg['price'], enter_msg['volume'], asset_name):
             if enter_msg['is_bid']:
                 self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available cash')
             if not enter_msg['is_bid']:
-                if self.subsession.single_asset:
+                if len(self.subsession.asset_names()) == 1:
                     self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available assets')
                 else:
                     self._send_error(enter_msg['pcode'], 'Order rejected: insufficient available amount of asset {}'.format(asset_name))
@@ -136,7 +126,7 @@ class Group(RedwoodGroup):
 
         if player and not player.check_available(not accepted_order['is_bid'], accepted_order['price'], accepted_order['volume'], accepted_order['asset_name']):
             if accepted_order['is_bid']:
-                if self.subsession.single_asset:
+                if len(self.subsession.asset_names()) == 1:
                     self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available assets')
                 else:
                     self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order['asset_name']))
@@ -245,10 +235,11 @@ class Player(BasePlayer):
 
     def set_endowments(self):
         '''sets all of this player's cash and asset endowments'''
-        if self.subsession.single_asset:
-            asset_endowment = { SINGLE_ASSET_NAME: self.asset_endowment() }
-        else:
-            asset_endowment = self.asset_endowment()
+
+        asset_endowment = self.asset_endowment()
+        if not isinstance(asset_endowment, dict):
+            asset_endowment = { SINGLE_ASSET_NAME: asset_endowment }
+
         self.settled_assets = asset_endowment
         self.available_assets = asset_endowment
 
@@ -294,7 +285,7 @@ class Player(BasePlayer):
             return False
         return True
 
-    # jsonfield is broken, it needs this special hack to get saved correctly
+    # jsonfield doesn't work correctly with save-the-change, it needs this hack
     # for more info see https://github.com/Leeps-Lab/otree-redwood/blob/master/otree_redwood/models.py#L167
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
