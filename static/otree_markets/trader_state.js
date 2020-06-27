@@ -82,7 +82,7 @@ export class TraderState extends PolymerElement {
             // the amount of time remaining in this round of trading in seconds if period_length is set, null otherwise
             // updated once a second
             timeRemaining: {
-                time: Number,
+                type: Number,
                 value: TRADER_STATE.time_remaining,
                 notify: true,
                 reflectToAttribute: true,
