@@ -73,7 +73,6 @@ class Group(RedwoodGroup):
         '''handle an enter message sent from the frontend'''
         enter_msg = event.value
         player = self.get_player(enter_msg['pcode'])
-        print(enter_msg, player)
         asset_name = enter_msg['asset_name'] if enter_msg['asset_name'] else SINGLE_ASSET_NAME
 
         if player and not player.check_available(enter_msg['is_bid'], enter_msg['price'], enter_msg['volume'], asset_name):
@@ -87,14 +86,12 @@ class Group(RedwoodGroup):
             return
 
         exchange = self.exchanges.get(asset_name=asset_name)
-        print(exchange)
         order_id = exchange.enter_order(
             enter_msg['price'],
             enter_msg['volume'],
             enter_msg['is_bid'],
             enter_msg['pcode'],
         )
-        print(exchange)
     
     def _on_cancel_event(self, event):
         '''handle a cancel message sent from the frontend'''
@@ -167,7 +164,6 @@ class Group(RedwoodGroup):
         self.send('confirm_cancel', order.as_dict())
     
     def _send_error(self, pcode, message):
-        print(pcode, message)
         '''send an error message to a player'''
         self.send('error', {
             'pcode': pcode,
