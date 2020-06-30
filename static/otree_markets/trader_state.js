@@ -200,8 +200,8 @@ export class TraderState extends PolymerElement {
     }
 
     // handle an incoming cancel confirmation message
-    _handle_confirm_cancel(msg) {
-        const order = msg.detail.payload;
+    _handle_confirm_cancel(event) {
+        const order = event.detail.payload;
         this._remove_order(order);
         if (order.pcode == this.pcode) {
             this.update_holdings_available(order, true);
@@ -226,7 +226,8 @@ export class TraderState extends PolymerElement {
     }
 
     // handle an incoming error message
-    _handle_error(msg) {
+    _handle_error(event) {
+        const msg = event.detail.payload;
         if (msg.pcode == this.pcode) {
             this.dispatchEvent(new CustomEvent('error', {detail: msg.message, bubbles: true, composed: true}));
         }
