@@ -14,12 +14,7 @@ class BaseMarketPage(Page):
             for ask_order in exchange._get_asks_qset():
                 asks.append(ask_order.as_dict())
             for trade in exchange._get_trades_qset():
-                trades.append({
-                    'timestamp': trade.timestamp.timestamp(),
-                    'asset_name': exchange.asset_name,
-                    'taking_order': trade.taking_order.as_dict(),
-                    'making_orders': trade.get_making_orders_dicts(),
-                })
+                trades.append(trade.as_dict())
         remaining_time = self.group.get_remaining_time()
         context.update({
             'trader_state': {

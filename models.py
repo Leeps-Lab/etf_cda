@@ -3,8 +3,8 @@ from otree.api import (
     models, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
-from .cda_exchange import CDAExchange
-from . import validate
+from .exchange.cda_exchange import CDAExchange
+from .exchange.base import Order, Trade
 from jsonfield import JSONField
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
@@ -73,6 +73,7 @@ class Group(RedwoodGroup):
         '''handle an enter message sent from the frontend'''
         enter_msg = event.value
         player = self.get_player(enter_msg['pcode'])
+        print(enter_msg, player)
         asset_name = enter_msg['asset_name'] if enter_msg['asset_name'] else SINGLE_ASSET_NAME
 
         if player and not player.check_available(enter_msg['is_bid'], enter_msg['price'], enter_msg['volume'], asset_name):
@@ -86,95 +87,87 @@ class Group(RedwoodGroup):
             return
 
         exchange = self.exchanges.get(asset_name=asset_name)
+        print(exchange)
         order_id = exchange.enter_order(
             enter_msg['price'],
             enter_msg['volume'],
             enter_msg['is_bid'],
             enter_msg['pcode'],
         )
+        print(exchange)
     
     def _on_cancel_event(self, event):
         '''handle a cancel message sent from the frontend'''
-        canceled_order = event.value
-        if canceled_order['pcode'] != event.participant.code:
-            print('cancel rejected: players can\'t cancel others\' orders')
-            return
+        canceled_order_dict = event.value
+        assert canceled_order_dict['pcode'] == event.participant.code, 'a player attempted to cancel another player\'s order'
 
-        exchange = self.exchanges.get(asset_name=canceled_order['asset_name'])
-        exchange.cancel_order(
-            canceled_order['is_bid'],
-            canceled_order['order_id'],
-        )
+        exchange = self.exchanges.get(asset_name=canceled_order_dict['asset_name'])
+        exchange.cancel_order(canceled_order_dict['order_id'])
 
     def _on_accept_event(self, event):
         '''handle an immediate accept message sent from the frontend'''
-        accepted_order = event.value
+        accepted_order_dict = event.value
         player = self.get_player(event.participant.code)
 
-        if player and not player.check_available(not accepted_order['is_bid'], accepted_order['price'], accepted_order['volume'], accepted_order['asset_name']):
-            if accepted_order['is_bid']:
+        if player and not player.check_available(not accepted_order_dict['is_bid'], accepted_order_dict['price'], accepted_order_dict['volume'], accepted_order_dict['asset_name']):
+            if accepted_order_dict['is_bid']:
                 if len(self.subsession.asset_names()) == 1:
-                    self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available assets')
+                    self._send_error(accepted_order_dict['pcode'], 'Cannot accept order: insufficient available assets')
                 else:
-                    self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order['asset_name']))
+                    self._send_error(accepted_order_dict['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order_dict['asset_name']))
             else:
-                self._send_error(accepted_order['pcode'], 'Cannot accept order: insufficient available cash')
+                self._send_error(accepted_order_dict['pcode'], 'Cannot accept order: insufficient available cash')
             return
 
-        exchange = self.exchanges.get(asset_name=accepted_order['asset_name'])
+        exchange = self.exchanges.get(asset_name=accepted_order_dict['asset_name'])
         exchange.accept_immediate(
-            accepted_order['is_bid'],
-            accepted_order['order_id'],
+            accepted_order_dict['order_id'],
             event.participant.code,
         )
 
-    def confirm_enter(self, order_dict):
+    def confirm_enter(self, order: Order):
         '''send an order entry confirmation to the frontend. this function is called
         by the exchange when an order is successfully entered'''
-        player = self.get_player(order_dict['pcode'])
+        player = self.get_player(order.pcode)
         if player:
-            player.update_holdings_available(order_dict, False)
+            player.update_holdings_available(order, False)
             player.save()
 
-        self.send('confirm_enter', order_dict)
+        self.send('confirm_enter', order.as_dict())
 
-    def handle_trade(self, timestamp, asset_name, taking_order, making_orders):
+    def confirm_trade(self, trade: Trade):
         '''send a trade confirmation to the frontend. this function is called by the exchange when a trade occurs'''
 
-        taking_player = self.get_player(taking_order['pcode'])
-        for making_order in making_orders:
-            making_player = self.get_player(making_order['pcode'])
-            volume = making_order['traded_volume']
-            price = making_order['price']
+        taking_player = self.get_player(trade.taking_order.pcode)
+        for making_order in trade.making_orders.all():
+            making_player = self.get_player(making_order.pcode)
+            volume = making_order.traded_volume
+            price = making_order.price
             if making_player:
                 # need to update making players' available cash and assets
                 # since these were adjusted when their order was entered, they need to be adjusted back so they're not double counted
                 making_player.update_holdings_available(making_order, True)
-                making_player.update_holdings_trade(price, volume, making_order['is_bid'], making_order['asset_name'])
+                making_player.update_holdings_trade(price, volume, making_order.is_bid, trade.exchange.asset_name)
                 making_player.save()
             if taking_player:
-                taking_player.update_holdings_trade(price, volume, taking_order['is_bid'], taking_order['asset_name'])
+                taking_player.update_holdings_trade(price, volume, trade.taking_order.is_bid, trade.exchange.asset_name)
         if taking_player:
             taking_player.save()
 
-        self.send('confirm_trade', {
-            'timestamp': timestamp,
-            'asset_name': asset_name,
-            'taking_order': taking_order,
-            'making_orders': making_orders,
-        })
+        self.send('confirm_trade', trade.as_dict())
     
-    def confirm_cancel(self, order_dict):
+    def confirm_cancel(self, order: Order):
         '''send an order cancel confirmation to the frontend. this function is called
         by the exchange when an order is successfully canceled'''
-        player = self.get_player(order_dict['pcode'])
+        player = self.get_player(order.pcode)
         if player:
-            player.update_holdings_available(order_dict, True)
+            player.update_holdings_available(order, True)
             player.save()
 
-        self.send('confirm_cancel', order_dict)
+        self.send('confirm_cancel', order.as_dict())
     
     def _send_error(self, pcode, message):
+        print(pcode, message)
         '''send an error message to a player'''
         self.send('error', {
             'pcode': pcode,
@@ -220,15 +213,15 @@ class Player(BasePlayer):
 
         self.save()
     
-    def update_holdings_available(self, order_dict, removed):
+    def update_holdings_available(self, order, removed):
         '''update this player's available holdings (cash or assets) when they enter or remove an order.
-        param order_dict is the changed order belonging to this player.
+        param order is the changed order belonging to this player.
         param removed is true when the changed order was removed and false when the changed order was added'''
         sign = 1 if removed else -1
-        if order_dict['is_bid']:
-            self.available_cash += order_dict['price'] * order_dict['volume'] * sign
+        if order.is_bid:
+            self.available_cash += order.price * order.volume * sign
         else:
-            self.available_assets[order_dict['asset_name']] += order_dict['volume'] * sign
+            self.available_assets[order.exchange.asset_name] += order.volume * sign
 
     def update_holdings_trade(self, price, volume, is_bid, asset_name):
         '''update this player's holdings (cash and assets) after a trade occurs.
