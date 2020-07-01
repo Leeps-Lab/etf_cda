@@ -2,7 +2,7 @@
 ### A generic market implementation in oTree
 
 oTree Markets is an extension to oTree which provides a set of useful tools for the creation of market-based experiments. It was built on LEEPS lab's [redwood](https://github.com/Leeps-Lab/otree-redwood) framework for realtime communication. It consists of 3 main components:
-  - a CDA market implementation (contained in [cda_exchange.py](./cda_exchange.py)) with support for multiple unit orders
+  - a CDA market implementation (contained in [cda_exchange.py](./exchange/cda_exchange.py)) with support for multiple unit orders
   - extended versions of oTree models and views (contained in [models.py](./models.py) and [pages.py](./pages.py)) which maintain records of players' cash and asset allocations and coordinates communication between the exchange and the frontend 
   - a Javascript trading interface, as well as a set of reusable webcomponents for creating market GUIs (contained in the [static files](./static/otree_markets/))
 
