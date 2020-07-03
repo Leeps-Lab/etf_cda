@@ -3,11 +3,12 @@ from otree.api import (
     models, BaseSubsession, BasePlayer,
 )
 from otree_redwood.models import Group as RedwoodGroup
-from .exchange.cda_exchange import CDAExchange
-from .exchange.base import Order, Trade
 from jsonfield import JSONField
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
+
+from .exchange.cda_exchange import CDAExchange
+from .exchange.base import Order, Trade
 
 SINGLE_ASSET_NAME = 'A'
 '''the name of the only asset when in single-asset mode'''
