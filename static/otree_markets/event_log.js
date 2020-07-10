@@ -41,15 +41,18 @@ class EventLog extends PolymerElement {
                 #container div {
                     font-family: monospace;
                 }
-                .error-entry {
+                .error {
                     color: red;
+                }
+                .warn {
+                    color: darkorange;
                 }
             </style>
 
             <div id="container" on-scroll="_container_scroll">
                 <template is="dom-repeat" items="{{_entries}}">
                     <div>
-                        <span class$="[[_get_entry_class(item)]]">[[item.text]]</span>
+                        <span class$="[[item.type]]">[[item.text]]</span>
                     </div>
                 </template>
             </div>
@@ -96,13 +99,8 @@ class EventLog extends PolymerElement {
         this.add(text, 'info');
     }
 
-    _get_entry_class(entry) {
-        switch (entry.type) {
-            case 'error':
-                return 'error-entry';
-            case 'info':
-                return 'info-entry';
-        }
+    warn(text) {
+        this.add(text, 'warn');
     }
 
     _container_scroll(event) {

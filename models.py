@@ -105,22 +105,23 @@ class Group(RedwoodGroup):
     def _on_accept_event(self, event):
         '''handle an immediate accept message sent from the frontend'''
         accepted_order_dict = event.value
-        player = self.get_player(event.participant.code)
+        sender_pcode = event.participant.code
+        player = self.get_player(sender_pcode)
 
         if player and not player.check_available(not accepted_order_dict['is_bid'], accepted_order_dict['price'], accepted_order_dict['volume'], accepted_order_dict['asset_name']):
             if accepted_order_dict['is_bid']:
                 if len(self.subsession.asset_names()) == 1:
-                    self._send_error(accepted_order_dict['pcode'], 'Cannot accept order: insufficient available assets')
+                    self._send_error(sender_pcode, 'Cannot accept order: insufficient available assets')
                 else:
-                    self._send_error(accepted_order_dict['pcode'], 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order_dict['asset_name']))
+                    self._send_error(sender_pcode, 'Cannot accept order: insufficient available amount of asset {}'.format(accepted_order_dict['asset_name']))
             else:
-                self._send_error(accepted_order_dict['pcode'], 'Cannot accept order: insufficient available cash')
+                self._send_error(sender_pcode, 'Cannot accept order: insufficient available cash')
             return
 
         exchange = self.exchanges.get(asset_name=accepted_order_dict['asset_name'])
         exchange.accept_immediate(
             accepted_order_dict['order_id'],
-            event.participant.code,
+            sender_pcode,
         )
 
     def confirm_enter(self, order: Order):
