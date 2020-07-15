@@ -134,7 +134,6 @@ class Trade(models.Model):
     exchange = GenericForeignKey('content_type', 'object_id')
     '''the exchange this trade occurred in'''
 
-
     # trades have a related name 'making_orders' from Order. this is a set of all the orders involved in this trade
     # which were already in the market when the trade occurred
 

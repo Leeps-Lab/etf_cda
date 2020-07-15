@@ -242,7 +242,7 @@ class CDAExchange(BaseExchange):
             bid.save()
         taking_order.traded_volume = volume - cur_volume
         taking_order.save()
-        self.group.handle_trade(trade)
+        self._send_trade_confirmation(trade)
     
     def _send_enter_confirmation(self, order):
         '''send an order enter confirmation to the group'''
