@@ -108,6 +108,11 @@ class Order(models.Model):
     '''
     making_trade  = models.ForeignKey('Trade', null=True, related_name='making_orders', on_delete=models.CASCADE)
     '''if this field is not null, then it references a trade where this order was in the market when the trade occurred'''
+    time_inactive = models.DateTimeField(null=True)
+    '''the time that this order's status changed from active to something else
+    
+    null while this order is active
+    '''
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     '''used to relate this order to an arbitrary exchange'''

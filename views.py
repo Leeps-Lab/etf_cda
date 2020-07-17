@@ -9,6 +9,7 @@ import vanilla
 import csv
 import datetime
 from .models import Group as MarketGroup
+from .exchange.base import OrderStatusEnum
 
 def make_json_export_path(session_config):
     class MarketOutputJsonExportView(vanilla.View):
@@ -18,34 +19,51 @@ def make_json_export_path(session_config):
             group_data = []
             for subsession in session.get_subsessions():
                 for group in subsession.get_groups():
-                    group_data.append(self.get_group_data(group))
+                    data = self.get_group_data(group)
+                    if data['exchange_data']:
+                        group_data.append(data)
 
             response = JsonResponse(group_data, safe=False)
-            filename = '{} Market Data (accessed {}).json'.format(
+            filename = '{} Market Data - session {} (accessed {}).json'.format(
                 session_config['display_name'],
+                kwargs['session_code'],
                 datetime.date.today().isoformat()
             )
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
         
+        def order_to_output_dict(self, order):
+            return {
+                'time_entered': order.timestamp,
+                'price': order.price,
+                'volume': order.volume,
+                'is_bid': order.is_bid,
+                'pcode': order.pcode,
+                'traded_volume': order.traded_volume,
+                'id': order.id,
+                'status': OrderStatusEnum(order.status).name,
+                'time_inactive': order.time_inactive,
+            }
+        
+        def trade_to_output_dict(self, trade):
+            return {
+                'timestamp': trade.timestamp,
+                'taking_order_id': trade.taking_order.id,
+                'making_order_ids': [ o.id for o in trade.making_orders.all() ],
+            }
+        
         def get_group_data(self, group: MarketGroup):
             exchange_data = {}
             exchange_query = group.exchanges.all().prefetch_related('orders', 'trades')
             for exchange in exchange_query:
-                orders = [e.as_dict() for e in exchange.orders.all()]
-                trades = [
-                    {
-                        'timestamp': e.timestamp.timestamp(),
-                        'taking_order': e.taking_order.id,
-                        'making_orders': [i.id for i in e.making_orders.all()],
-                    }
-                    for e in exchange.trades.all()
-                ]
+                orders = [self.order_to_output_dict(e) for e in exchange.orders.all()]
+                trades = [self.trade_to_output_dict(e) for e in exchange.trades.all()]
                 exchange_data[exchange.asset_name] = {
                     'orders': orders,
                     'trades': trades,
                 }
             return {
+                'round_number': group.round_number,
                 'id_in_subsession': group.id_in_subsession,
                 'exchange_data': exchange_data,
             }

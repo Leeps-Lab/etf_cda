@@ -1,5 +1,6 @@
 from django.db import models
 from itertools import chain
+from datetime import datetime
 
 from .base import BaseExchange, Order, Trade, OrderStatusEnum
 
@@ -69,6 +70,7 @@ class CDAExchange(BaseExchange):
         assert canceled_order.status == OrderStatusEnum.ACTIVE, 'canceled order is not active'
 
         canceled_order.status = OrderStatusEnum.CANCELED
+        canceled_order.time_inactive = datetime.now()
         canceled_order.save()
         self.group.confirm_cancel(canceled_order)
     
@@ -92,6 +94,7 @@ class CDAExchange(BaseExchange):
         trade = self.trades.create(taking_order=taking_order)
 
         accepted_order.status = OrderStatusEnum.ACCEPTED_MAKER
+        accepted_order.time_inactive = trade.timestamp
         accepted_order.making_trade = trade
         accepted_order.traded_volume = accepted_order.volume
         accepted_order.save()
@@ -121,11 +124,13 @@ class CDAExchange(BaseExchange):
                 cur_volume = 0
             ask.making_trade = trade
             ask.status = OrderStatusEnum.TRADED_MAKER
+            ask.time_inactive = trade.timestamp
             ask.save()
         if cur_volume > 0:
             self._enter_partial(bid_order, cur_volume)
         bid_order.traded_volume = bid_order.volume - cur_volume
         bid_order.status = OrderStatusEnum.TRADED_TAKER
+        bid_order.time_inactive = trade.timestamp
         bid_order.save()
         self._send_trade_confirmation(trade)
     
@@ -152,11 +157,13 @@ class CDAExchange(BaseExchange):
                 cur_volume = 0
             bid.making_trade = trade
             bid.status = OrderStatusEnum.TRADED_MAKER
+            bid.time_inactive = trade.timestamp
             bid.save()
         if cur_volume > 0:
             self._enter_partial(ask_order, cur_volume)
         ask_order.traded_volume = ask_order.volume - cur_volume
         ask_order.status = OrderStatusEnum.TRADED_TAKER
+        ask_order.time_inactive = trade.timestamp
         ask_order.save()
         self._send_trade_confirmation(trade)
     
@@ -202,8 +209,10 @@ class CDAExchange(BaseExchange):
                 cur_volume = 0
             ask.making_trade = trade
             ask.status = OrderStatusEnum.MARKET_MAKER
+            ask.time_inactive = trade.timestamp
             ask.save()
         taking_order.traded_volume = volume - cur_volume
+        taking_order.time_inactive = trade.timestamp
         taking_order.save()
         self._send_trade_confirmation(trade)
 
@@ -239,8 +248,10 @@ class CDAExchange(BaseExchange):
                 cur_volume = 0
             bid.making_trade = trade
             bid.status = OrderStatusEnum.MARKET_MAKER
+            bid.time_inactive = trade.timestamp
             bid.save()
         taking_order.traded_volume = volume - cur_volume
+        taking_order.time_inactive = trade.timestamp
         taking_order.save()
         self._send_trade_confirmation(trade)
     
