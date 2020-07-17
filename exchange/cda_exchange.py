@@ -1,7 +1,7 @@
 from django.db import models
 from itertools import chain
 
-from .base import BaseExchange, Order, Trade
+from .base import BaseExchange, Order, Trade, OrderStatusEnum
 
 class CDAExchange(BaseExchange):
     '''this model represents a continuous double auction exchange'''
@@ -10,13 +10,13 @@ class CDAExchange(BaseExchange):
     # these are related names from ForeignKey fields on Trade and Order
     
     def _get_bids_qset(self):
-        '''get a queryset of the bids held by this exchange, sorted by descending price then timestamp'''
-        return (self.orders.filter(is_bid=True, active=True)
+        '''get a queryset of all active bids in this exchange, sorted by descending price then timestamp'''
+        return (self.orders.filter(is_bid=True, status=OrderStatusEnum.ACTIVE)
                            .order_by('-price', 'timestamp'))
 
     def _get_asks_qset(self):
-        '''get a queryset of the asks held by this exchange, sorted by ascending price then timestamp'''
-        return (self.orders.filter(is_bid=False, active=True)
+        '''get a queryset of all active asks in this exchange, sorted by ascending price then timestamp'''
+        return (self.orders.filter(is_bid=False, status=OrderStatusEnum.ACTIVE)
                            .order_by('price', 'timestamp'))
     
     def _get_best_bid(self):
@@ -66,9 +66,9 @@ class CDAExchange(BaseExchange):
     def cancel_order(self, order_id):
         '''cancel an already entered order'''
         canceled_order = self._get_order(order_id)
-        assert canceled_order.active, 'canceled order is not active'
+        assert canceled_order.status == OrderStatusEnum.ACTIVE, 'canceled order is not active'
 
-        canceled_order.active = False
+        canceled_order.status = OrderStatusEnum.CANCELED
         canceled_order.save()
         self.group.confirm_cancel(canceled_order)
     
@@ -78,10 +78,10 @@ class CDAExchange(BaseExchange):
         this creates a new order and trades it directly with the order with id `order_id`,
         fully filling the accepted order'''
         accepted_order = self._get_order(accepted_order_id)
-        assert accepted_order.active, 'accepted order is not active'
+        assert accepted_order.status == OrderStatusEnum.ACTIVE, 'accepted order is not active'
 
         taking_order = self.orders.create(
-            active = False,
+            status = OrderStatusEnum.ACCEPTED_TAKER,
             price  = accepted_order.price,
             volume = accepted_order.volume,
             is_bid = not accepted_order.is_bid,
@@ -91,7 +91,7 @@ class CDAExchange(BaseExchange):
 
         trade = self.trades.create(taking_order=taking_order)
 
-        accepted_order.active = False
+        accepted_order.status = OrderStatusEnum.ACCEPTED_MAKER
         accepted_order.making_trade = trade
         accepted_order.traded_volume = accepted_order.volume
         accepted_order.save()
@@ -120,12 +120,12 @@ class CDAExchange(BaseExchange):
                 ask.traded_volume = cur_volume
                 cur_volume = 0
             ask.making_trade = trade
-            ask.active = False
+            ask.status = OrderStatusEnum.TRADED_MAKER
             ask.save()
         if cur_volume > 0:
             self._enter_partial(bid_order, cur_volume)
         bid_order.traded_volume = bid_order.volume - cur_volume
-        bid_order.active = False
+        bid_order.status = OrderStatusEnum.TRADED_TAKER
         bid_order.save()
         self._send_trade_confirmation(trade)
     
@@ -151,12 +151,12 @@ class CDAExchange(BaseExchange):
                 bid.traded_volume = cur_volume
                 cur_volume = 0
             bid.making_trade = trade
-            bid.active = False
+            bid.status = OrderStatusEnum.TRADED_MAKER
             bid.save()
         if cur_volume > 0:
             self._enter_partial(ask_order, cur_volume)
         ask_order.traded_volume = ask_order.volume - cur_volume
-        ask_order.active = False
+        ask_order.status = OrderStatusEnum.TRADED_TAKER
         ask_order.save()
         self._send_trade_confirmation(trade)
     
@@ -178,7 +178,7 @@ class CDAExchange(BaseExchange):
             return
         
         taking_order = self.orders.create(
-            active = False,
+            status = OrderStatusEnum.MARKET_TAKER,
             price  = 0,
             # this price field doesn't really matter, but it makes sense that a bid market order would have
             # the min possible price
@@ -201,7 +201,7 @@ class CDAExchange(BaseExchange):
                 ask.traded_volume = cur_volume
                 cur_volume = 0
             ask.making_trade = trade
-            ask.active = False
+            ask.status = OrderStatusEnum.MARKET_MAKER
             ask.save()
         taking_order.traded_volume = volume - cur_volume
         taking_order.save()
@@ -214,7 +214,7 @@ class CDAExchange(BaseExchange):
             return
 
         taking_order = self.orders.create(
-            active = False,
+            status = OrderStatusEnum.MARKET_TAKER,
             price  = 0x7FFFFFFF, 
             # this is the max 4-byte signed integer, the biggest number IntegerField can hold
             # this price field doesn't really matter, but it makes sense that an ask market order would have
@@ -238,7 +238,7 @@ class CDAExchange(BaseExchange):
                 bid.traded_volume = cur_volume
                 cur_volume = 0
             bid.making_trade = trade
-            bid.active = False
+            bid.status = OrderStatusEnum.MARKET_MAKER
             bid.save()
         taking_order.traded_volume = volume - cur_volume
         taking_order.save()

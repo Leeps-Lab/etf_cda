@@ -1,3 +1,5 @@
+import enum
+
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -54,19 +56,43 @@ class BaseExchange(models.Model):
         pass
 
 
+class OrderStatusEnum(enum.IntEnum):
+    ACTIVE         = enum.auto()
+    '''this order is currently on the market, available to be traded with'''
+    CANCELED       = enum.auto()
+    '''this order was canceled'''
+    TRADED_TAKER   = enum.auto()
+    '''this order was part of a regular trade where it was the taker'''
+    TRADED_MAKER   = enum.auto()
+    '''this order was part of a regular trade where it was the maker'''
+    ACCEPTED_TAKER = enum.auto()
+    '''this order was part of an immediate accept trade where it was the taker'''
+    ACCEPTED_MAKER = enum.auto()
+    '''this order was part of an immediate accept trade where it was the maker'''
+    MARKET_TAKER   = enum.auto()
+    '''this order was a market order (taker in a market order trade)'''
+    MARKET_MAKER   = enum.auto()
+    '''this order was traded with a market order'''
+
+
 class Order(models.Model):
     '''this model represents a single order in an exchange'''
 
     class Meta:
         app_label = 'otree_markets'
+        ordering = ['timestamp']
 
     # Order has a field 'id' which is referenced often. this is built into django and is
     # a unique identifier associated with each order
 
     timestamp = models.DateTimeField(auto_now_add=True)
     '''this time this order was created'''
-    active    = models.BooleanField(default=True)
-    '''whether this order is still active'''
+    status    = models.PositiveSmallIntegerField(default=OrderStatusEnum.ACTIVE)
+    '''this order's current state
+
+    all possible values of this field are in exchange.base.OrderStatusEnum.
+    each state is described in that enum
+    '''
     price     = models.IntegerField()
     '''this order's price'''
     volume    = models.IntegerField()
@@ -121,6 +147,7 @@ class Trade(models.Model):
 
     class Meta:
         app_label = 'otree_markets'
+        ordering = ['timestamp']
 
     timestamp = models.DateTimeField(auto_now_add=True)
     '''the time this trade occured'''
