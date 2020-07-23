@@ -190,9 +190,9 @@ export class TraderState extends PolymerElement {
         }
 
         // sorted insert trade into trades list
-        let i;
+        let i = 0;
         for (; i < this.trades.length; i++)
-            if (this.trades[i].timestamp > trade.timestamp)
+            if (this.trades[i].timestamp < trade.timestamp)
                 break;
         this.splice('trades', i, 0, trade);
 

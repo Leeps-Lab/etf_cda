@@ -11,12 +11,18 @@ class CDAExchange(BaseExchange):
     # these are related names from ForeignKey fields on Trade and Order
     
     def _get_bids_qset(self):
-        '''get a queryset of all active bids in this exchange, sorted by descending price then timestamp'''
+        '''get a queryset of all active bids in this exchange, sorted by descending price then ascending timestamp
+        
+        use ascending timestamp because older orders get precedence over newer ones
+        '''
         return (self.orders.filter(is_bid=True, status=OrderStatusEnum.ACTIVE)
                            .order_by('-price', 'timestamp'))
 
     def _get_asks_qset(self):
-        '''get a queryset of all active asks in this exchange, sorted by ascending price then timestamp'''
+        '''get a queryset of all active asks in this exchange, sorted by ascending price then ascending timestamp
+
+        use ascending timestamp because older orders get precedence over newer ones
+        '''
         return (self.orders.filter(is_bid=False, status=OrderStatusEnum.ACTIVE)
                            .order_by('price', 'timestamp'))
     
@@ -29,8 +35,11 @@ class CDAExchange(BaseExchange):
         return self._get_asks_qset().first()
     
     def _get_trades_qset(self):
-        '''get a queryset of all trades that have occurred in this exchange, ordered by timestamp'''
-        return (self.trades.order_by('timestamp')
+        '''get a queryset of all trades that have occurred in this exchange, ordered by descending timestamp
+        
+        use descending timestamp because knowledge of recent trades is more useful than that of older trades
+        '''
+        return (self.trades.order_by('-timestamp')
                            .prefetch_related('taking_order', 'making_orders'))
     
     def _get_order(self, order_id):
