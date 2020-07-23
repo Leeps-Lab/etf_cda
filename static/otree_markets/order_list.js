@@ -28,7 +28,6 @@ class OrderList extends PolymerElement {
         return html`
             <style>
                 #container {
-                    border: 1px solid black;
                     width: 100%;
                     height: 100%;
                     overflow-y: auto;

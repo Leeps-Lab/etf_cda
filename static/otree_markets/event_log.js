@@ -33,7 +33,6 @@ class EventLog extends PolymerElement {
                 #container {
                     width: 100%;
                     height: 100%;
-                    border: 1px solid black;
                     padding: 10px;
                     overflow-y: scroll;
                     box-sizing: border-box;
@@ -70,6 +69,11 @@ class EventLog extends PolymerElement {
         window.addEventListener('unload', () => {
             sessionStorage.setItem('event-log-history', JSON.stringify(this.get('_entries')));
         });
+
+        setTimeout(() => {
+            const container = this.$.container;
+            container.scrollTop = container.scrollHeight- container.clientHeight;
+        })
     }
 
     add(text, type) {
