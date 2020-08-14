@@ -24,10 +24,6 @@ class Subsession(BaseSubsession):
         represented in this array. if not defined, one exchange is created and the game is configured for a single asset'''
         return [SINGLE_ASSET_NAME]
     
-    def allow_short(self):
-        '''override this method to allow players to have negative holdings'''
-        return False
-
     def create_exchanges(self):
         asset_names = self.asset_names()
 
@@ -239,8 +235,6 @@ class Player(BasePlayer):
     
     def check_available(self, is_bid, price, volume, asset_name):
         '''check whether this player has enough available holdings to enter an order'''
-        if self.subsession.allow_short():
-            return True
         if is_bid and self.available_cash < price * volume:
             return False
         elif not is_bid and self.available_assets[asset_name] < volume:
