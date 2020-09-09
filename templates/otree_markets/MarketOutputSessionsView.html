@@ -34,10 +34,12 @@
         {% for session in sessions %}
         <tr class="{{ session.is_demo|yesno:'demo,' }}">
             <td>{{ session.code }}</td>
-            <!-- <td>
+            {% if includes_csv_output %}
+            <td>
                 <a href="{% url 'markets_export_csv_'|add:session_config.name session_code=session.code %}"
                    class="download-link">get csv</a>
-            </td> -->
+            </td>
+            {% endif %}
             <td>
                 <a href="{% url 'markets_export_json_'|add:session_config.name session_code=session.code %}"
                    class="download-link">get json</a>

@@ -73,45 +73,30 @@ def make_json_export_path(session_config):
     url_name = f'markets_export_json_{app_name}'
     return path(url_pattern, MarketOutputJsonExportView.as_view(), name=url_name)
 
-def make_csv_export_path(session_config):
+def make_csv_export_path(session_config, csv_gen_func):
     class MarketOutputCsvExportView(vanilla.View):
 
         def get(self, request, *args, **kwargs):
             session = get_object_or_404(Session, code=kwargs['session_code'])
-            tables = []
-            for subsession in session.get_subsessions():
-                for group in subsession.get_groups():
-                    tables.append(self.get_output_table(group))
 
             response = HttpResponse(content_type='text/csv')
             filename = '{} Market Data (accessed {}).csv'.format(
-                self.session_config['display_name'],
+                session_config['display_name'],
                 datetime.date.today().isoformat()
             )
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
             w = csv.writer(response)
-            w.writerow(self.get_output_table_header())
-            for rows in tables:
-                w.writerows(rows)
+            w.writerows(csv_gen_func(session))
 
             return response
-
-        def get_output_table_header(self):
-            return [
-                'timestamp',
-                'asset_name',
-            ]
-        
-        def get_output_table(self, group):
-            raise NotImplementedError()
     
     app_name = session_config['name']
     url_pattern = f'markets_export_csv/{app_name}/<str:session_code>/'
     url_name = f'markets_export_csv_{app_name}'
     return path(url_pattern, MarketOutputCsvExportView.as_view(), name=url_name)
 
-def make_sessions_view(session_config):
+def make_sessions_view(session_config, includes_csv_output):
     class MarketOutputSessionsView(vanilla.View):
         url_name = f'markets_sessions_{session_config["name"]}'
         url_pattern = f'^{url_name}/$'
@@ -122,6 +107,7 @@ def make_sessions_view(session_config):
             context = {
                 'sessions': sessions,
                 'session_config': session_config,
+                'includes_csv_output': includes_csv_output,
             }
             return TemplateResponse(request, 'otree_markets/MarketOutputSessionsView.html', context)
 
@@ -136,7 +122,18 @@ for session_config in SESSION_CONFIGS_DICT.values():
         group_cls = models_module.Group
     except (ImportError, AttributeError):
         continue
-    if issubclass(group_cls, MarketGroup):
-        markets_export_views.append(make_sessions_view(session_config))
-        markets_export_urls.append(make_csv_export_path(session_config))
-        markets_export_urls.append(make_json_export_path(session_config))
+    if not issubclass(group_cls, MarketGroup):
+        continue
+
+    csv_gen_func = None
+    try:
+        output_module = import_module(f'{app_name}.output')
+        csv_gen_func = output_module.get_csv_output
+    except (ImportError, AttributeError):
+        pass
+
+    includes_csv_output = csv_gen_func is not None
+    markets_export_views.append(make_sessions_view(session_config, includes_csv_output))
+    markets_export_urls.append(make_json_export_path(session_config))
+    if includes_csv_output:
+        markets_export_urls.append(make_csv_export_path(session_config, csv_gen_func))
