@@ -1,5 +1,6 @@
 from otree.models import Session
 from otree.session import SESSION_CONFIGS_DICT
+from otree.common import get_models_module
 from django.template.response import TemplateResponse
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -19,6 +20,8 @@ def make_json_export_path(session_config):
             group_data = []
             for subsession in session.get_subsessions():
                 for group in subsession.get_groups():
+                    if not isinstance(group, MarketGroup):
+                        continue
                     data = self.get_group_data(group)
                     if data['exchange_data']:
                         group_data.append(data)
@@ -103,7 +106,22 @@ def make_sessions_view(session_config, includes_csv_output):
         display_name = f'{session_config["display_name"]} Trading Output'
 
         def get(request, *args, **kwargs):
-            sessions = Session.objects.filter(config=session_config)
+            # this is pretty bad ..
+            # we can't just filter on session config since changing any params means that the session's config
+            # will be different from the config in SESSION_CONFIGS_DICT. what we want to do is filter on config['name']
+            # but we can't do that because Session.config is that weird PickleField thing which is stored as base64 text in the DB.
+            #
+            # the only option I came up with is to load EVERY session into memory and filter by config['name'] in python. the values_list
+            # thing is to avoid loading all of every session, this way we just get the config and id for every session, then we can
+            # go back and query again for the full session objects we want. this is probably real slow and will not scale well.
+            # if someone smarter than me and better at database is reading this, please fix this.
+            session_ids = (
+                session_id
+                for config, session_id
+                in Session.objects.values_list('config', 'id')
+                if config['name'] == session_config['name']
+            )
+            sessions = Session.objects.filter(id__in=session_ids)
             context = {
                 'sessions': sessions,
                 'session_config': session_config,
@@ -116,21 +134,18 @@ def make_sessions_view(session_config, includes_csv_output):
 markets_export_views = []
 markets_export_urls = []
 for session_config in SESSION_CONFIGS_DICT.values():
-    app_name = session_config['name']
-    try:
-        models_module = import_module(f'{app_name}.models')
-        group_cls = models_module.Group
-    except (ImportError, AttributeError):
-        continue
-    if not issubclass(group_cls, MarketGroup):
+    # if there aren't any markets apps in the app sequence, don't make an output page for them
+    if not any(issubclass(get_models_module(app_name).Group, MarketGroup) for app_name in session_config['app_sequence']):
         continue
 
+    # this isn't right, need to fix later
     csv_gen_func = None
-    try:
-        output_module = import_module(f'{app_name}.output')
-        csv_gen_func = output_module.get_csv_output
-    except (ImportError, AttributeError):
-        pass
+    for app_name in session_config['app_sequence']:
+        try:
+            output_module = import_module(f'{app_name}.output')
+            csv_gen_func = output_module.get_csv_output
+        except (ImportError, AttributeError):
+            pass
 
     includes_csv_output = csv_gen_func is not None
     markets_export_views.append(make_sessions_view(session_config, includes_csv_output))
