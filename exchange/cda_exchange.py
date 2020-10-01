@@ -91,7 +91,12 @@ class CDAExchange(BaseExchange):
         accepted_order = self._get_order(accepted_order_id)
         assert accepted_order.status == OrderStatusEnum.ACTIVE, 'accepted order is not active'
 
+        # timestamp has auto_now_add, so we shouldn't have to specify it here
+        # but we want timestamp and time_inactive to be exactly the same, so we have to do it this way
+        now = datetime.now()
         taking_order = self.orders.create(
+            timestamp = now,
+            time_inactive = now,
             status = OrderStatusEnum.ACCEPTED_TAKER,
             price  = accepted_order.price,
             volume = accepted_order.volume,
@@ -193,7 +198,10 @@ class CDAExchange(BaseExchange):
         if volume == 0 or not self._get_best_ask():
             return
         
+        now = datetime.now()
         taking_order = self.orders.create(
+            timestamp = now,
+            time_inactive = now,
             status = OrderStatusEnum.MARKET_TAKER,
             price  = 0,
             # this price field doesn't really matter, but it makes sense that a bid market order would have
@@ -231,7 +239,10 @@ class CDAExchange(BaseExchange):
         if volume == 0 or not self._get_best_bid():
             return
 
+        now = datetime.now()
         taking_order = self.orders.create(
+            timestamp = now,
+            time_inactive = now,
             status = OrderStatusEnum.MARKET_TAKER,
             price  = 0x7FFFFFFF, 
             # this is the max 4-byte signed integer, the biggest number IntegerField can hold
