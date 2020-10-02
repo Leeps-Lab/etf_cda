@@ -16,7 +16,15 @@
             });
         })
     </script>
-{% endblock %}
+{% endblock %} 
+
+{% block styles %}
+    <style>
+        .session-code {
+            font-family: monospace,monospace;
+        }
+    </style>
+{% endblock %} 
 
 {% block content %}
 
@@ -28,22 +36,25 @@
     <table class="table">
         <tr>
             <th>Session Code</th>
-            <!-- <th></th> -->
+            {% for _ in output_types %}
             <th></th>
+            {% endfor %}
         </tr>
         {% for session in sessions %}
         <tr class="{{ session.is_demo|yesno:'demo,' }}">
-            <td>{{ session.code }}</td>
-            {% if includes_csv_output %}
             <td>
-                <a href="{% url 'markets_export_csv_'|add:session_config.name session_code=session.code %}"
-                   class="download-link">get csv</a>
+                <span class="session-code">{{ session.code }}</span>
+
+                {% if session.is_demo %}
+                <span> (demo)</span>
+                {% endif %}
             </td>
-            {% endif %}
+            {% for output_type in output_types %}
             <td>
-                <a href="{% url 'markets_export_json_'|add:session_config.name session_code=session.code %}"
-                   class="download-link">get json</a>
+                <a href="{% url ''|add:output_type.url_name session.code %}"
+                   class="download-link">{{ output_type.link_text }}</a>
             </td>
+            {% endfor %}
         </tr>
         {% endfor %}
     </table>
