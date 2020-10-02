@@ -1,6 +1,6 @@
 from django.db import models
 from itertools import chain
-from datetime import datetime
+from django.utils import timezone
 
 from .base import BaseExchange, Order, Trade, OrderStatusEnum
 
@@ -79,7 +79,7 @@ class CDAExchange(BaseExchange):
         assert canceled_order.status == OrderStatusEnum.ACTIVE, 'canceled order is not active'
 
         canceled_order.status = OrderStatusEnum.CANCELED
-        canceled_order.time_inactive = datetime.now()
+        canceled_order.time_inactive = timezone.now()
         canceled_order.save()
         self.group.confirm_cancel(canceled_order)
     
@@ -91,9 +91,7 @@ class CDAExchange(BaseExchange):
         accepted_order = self._get_order(accepted_order_id)
         assert accepted_order.status == OrderStatusEnum.ACTIVE, 'accepted order is not active'
 
-        # timestamp has auto_now_add, so we shouldn't have to specify it here
-        # but we want timestamp and time_inactive to be exactly the same, so we have to do it this way
-        now = datetime.now()
+        now = timezone.now()
         taking_order = self.orders.create(
             timestamp = now,
             time_inactive = now,
@@ -105,10 +103,10 @@ class CDAExchange(BaseExchange):
             traded_volume = accepted_order.volume,
         )
 
-        trade = self.trades.create(taking_order=taking_order)
+        trade = self.trades.create(timestamp=now, taking_order=taking_order)
 
         accepted_order.status = OrderStatusEnum.ACCEPTED_MAKER
-        accepted_order.time_inactive = trade.timestamp
+        accepted_order.time_inactive = now
         accepted_order.making_trade = trade
         accepted_order.traded_volume = accepted_order.volume
         accepted_order.save()
@@ -198,7 +196,9 @@ class CDAExchange(BaseExchange):
         if volume == 0 or not self._get_best_ask():
             return
         
-        now = datetime.now()
+        # use one datetime object for all timestamp updates so that
+        # all the timestamps agree exactly
+        now = timezone.now()
         taking_order = self.orders.create(
             timestamp = now,
             time_inactive = now,
@@ -210,7 +210,7 @@ class CDAExchange(BaseExchange):
             is_bid = True,
             pcode  = pcode,
         )
-        trade = self.trades.create(taking_order=taking_order)
+        trade = self.trades.create(timestamp=now, taking_order=taking_order)
 
         asks = self._get_asks_qset()
         cur_volume = volume
@@ -226,10 +226,10 @@ class CDAExchange(BaseExchange):
                 cur_volume = 0
             ask.making_trade = trade
             ask.status = OrderStatusEnum.MARKET_MAKER
-            ask.time_inactive = trade.timestamp
+            ask.time_inactive = now
             ask.save()
         taking_order.traded_volume = volume - cur_volume
-        taking_order.time_inactive = trade.timestamp
+        taking_order.time_inactive = now
         taking_order.save()
         self._send_trade_confirmation(trade)
 
@@ -239,7 +239,9 @@ class CDAExchange(BaseExchange):
         if volume == 0 or not self._get_best_bid():
             return
 
-        now = datetime.now()
+        # use one datetime object for all timestamp updates so that
+        # all the timestamps agree exactly
+        now = timezone.now()
         taking_order = self.orders.create(
             timestamp = now,
             time_inactive = now,
@@ -252,7 +254,7 @@ class CDAExchange(BaseExchange):
             is_bid = False,
             pcode  = pcode,
         )
-        trade = self.trades.create(taking_order=taking_order)
+        trade = self.trades.create(timestamp=now, taking_order=taking_order)
 
         bids = self._get_bids_qset()
         cur_volume = volume
@@ -268,10 +270,10 @@ class CDAExchange(BaseExchange):
                 cur_volume = 0
             bid.making_trade = trade
             bid.status = OrderStatusEnum.MARKET_MAKER
-            bid.time_inactive = trade.timestamp
+            bid.time_inactive = now
             bid.save()
         taking_order.traded_volume = volume - cur_volume
-        taking_order.time_inactive = trade.timestamp
+        taking_order.time_inactive = now
         taking_order.save()
         self._send_trade_confirmation(trade)
     

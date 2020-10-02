@@ -4,6 +4,7 @@ from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericRelation
+from django.utils import timezone
 
 class BaseExchange(models.Model):
     '''this model is the base model which all oTree Markets exchange implementations should inherit from
@@ -85,7 +86,7 @@ class Order(models.Model):
     # Order has a field 'id' which is referenced often. this is built into django and is
     # a unique identifier associated with each order
 
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(default=timezone.now)
     '''this time this order was created'''
     status    = models.PositiveSmallIntegerField(default=OrderStatusEnum.ACTIVE)
     '''this order's current state
@@ -154,7 +155,7 @@ class Trade(models.Model):
         app_label = 'otree_markets'
         ordering = ['timestamp']
 
-    timestamp = models.DateTimeField(auto_now_add=True)
+    timestamp = models.DateTimeField(default=timezone.now)
     '''the time this trade occured'''
     taking_order = models.OneToOneField('Order', related_name='taking_trade', on_delete=models.CASCADE)
     '''the order that triggered this trade'''
