@@ -235,15 +235,18 @@ export class TraderState extends PolymerElement {
 
     // compare two order objects. sort first by price, then by timestamp
     // return a positive or negative number a la c strcmp
+    // sort by descending price for bids, ascending price for asks
     _compare_orders(o1, o2) {
         if (o1.price == o2.price)
             // sort by descending timestamp
             return -(o1.timestamp - o2.timestamp);
-        else
+        else if (o1.is_bid)
             return o1.price - o2.price;
+        else
+            return o2.price - o1.price;
     }
 
-    // insert an order into the bids array in descending order
+    // insert an order into the bids array in order
     _insert_bid(order) {
         let i = 0;
         for (; i < this.bids.length; i++) {
@@ -253,11 +256,11 @@ export class TraderState extends PolymerElement {
         this.splice('bids', i, 0, order);
     }
 
-    // insert an ask into the asks array in ascending order
+    // insert an ask into the asks array in order
     _insert_ask(order) {
         let i = 0;
         for (; i < this.asks.length; i++) {
-            if (this._compare_orders(this.asks[i], order) > 0)
+            if (this._compare_orders(this.asks[i], order) < 0)
                 break;
         }
         this.splice('asks', i, 0, order);
