@@ -1,6 +1,8 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
+import '/static/otree-redwood/src/otree-constants/otree-constants.js';
+
 /*
     this component is a message box which displays either info messages or error messages.
     call either the `info` or `error` method with a message to add a message to the list.
@@ -48,6 +50,10 @@ class EventLog extends PolymerElement {
                 }
             </style>
 
+            <otree-constants
+                id="constants"
+            ></otree-constants>
+
             <div id="container" on-scroll="_container_scroll">
                 <template is="dom-repeat" items="{{_entries}}">
                     <div>
@@ -60,14 +66,21 @@ class EventLog extends PolymerElement {
 
     ready() {
         super.ready();
+
+        const round_number = this.$.constants.roundNumber;
         // check if log contents are stored in session storage
-        const prev_entries = sessionStorage.getItem('event-log-history');
-        if (prev_entries !== null) {
-            this.set('_entries', JSON.parse(prev_entries));
+        const prev_data = JSON.parse(sessionStorage.getItem('event-log-data'));
+        if (prev_data !== null && prev_data.round_number == round_number) {
+            this.set('_entries', prev_data.entries);
         }
         // write log contents into session storage on page unload
         window.addEventListener('unload', () => {
-            sessionStorage.setItem('event-log-history', JSON.stringify(this.get('_entries')));
+            const new_data = JSON.stringify({
+                entries: this.get('_entries'),
+                round_number: round_number,
+            });
+            console.log(new_data);
+            sessionStorage.setItem('event-log-data', new_data);
         });
 
         setTimeout(() => {
