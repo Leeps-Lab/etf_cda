@@ -15,7 +15,7 @@ class TradeList extends PolymerElement {
             displayFormat: {
                 type: Object,
                 value: function() {
-                    return trade => trade.taking_order.traded_volume;
+                    return (making_order, taking_order) => `${making_order.traded_volume} @ $${making_order.price}`;
                 },
             },
         };
@@ -38,10 +38,12 @@ class TradeList extends PolymerElement {
             </style>
 
             <div id="container">
-                <template is="dom-repeat" items="{{trades}}" filter="{{_getAssetFilterFunc(assetName)}}">
-                    <div>
-                        <span>[[displayFormat(item)]]</span>
-                    </div>
+                <template is="dom-repeat" items="{{trades}}" as="trade" filter="{{_getAssetFilterFunc(assetName)}}">
+                    <template is="dom-repeat" items="{{trade.making_orders}}" as="making_order">
+                        <div>
+                            <span>[[displayFormat(making_order, trade.taking_order)]]</span>
+                        </div>
+                    </template>
                 </template>
             </div>
         `;
