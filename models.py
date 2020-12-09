@@ -30,11 +30,11 @@ class Subsession(BaseSubsession):
         for group in self.get_groups():
             for name in asset_names:
                 group.exchanges.create(asset_name=name)
-        for player in self.get_players():
-            player.set_endowments()
 
     def creating_session(self):
         self.create_exchanges()
+        for player in self.get_players():
+            player.set_endowments()
 
 
 class Group(RedwoodGroup):
