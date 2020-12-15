@@ -9,7 +9,7 @@ import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-rep
     when the X is clicked
 */
 
-class OrderList extends PolymerElement {
+export class OrderList extends PolymerElement {
 
     static get properties() {
         return {

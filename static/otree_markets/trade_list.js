@@ -6,7 +6,7 @@ import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-rep
     it expects `trades` to be a sorted list of objects representing trades
 */
 
-class TradeList extends PolymerElement {
+export class TradeList extends PolymerElement {
 
     static get properties() {
         return {

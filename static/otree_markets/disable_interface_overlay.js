@@ -6,7 +6,7 @@ import '/static/otree-redwood/src/redwood-period/redwood-period.js';
     before the round has started. it uses redwood-period to hook into the period-start and period-end events.
 */
 
-class DisableInterfaceOverlay extends PolymerElement {
+export class DisableInterfaceOverlay extends PolymerElement {
 
     static get template() {
         return html`

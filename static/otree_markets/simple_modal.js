@@ -7,7 +7,7 @@ import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polyme
     to this function which reflects whether the user clicked accept or decline.
 */
 
-class SimpleModal extends PolymerElement {
+export class SimpleModal extends PolymerElement {
 
     static get properties() {
         return {

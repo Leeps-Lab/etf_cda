@@ -9,7 +9,7 @@ import '/static/otree-redwood/src/otree-constants/otree-constants.js';
     the box always stays scrolled to the bottom unless the player has scrolled the message box up at all
 */
 
-class EventLog extends PolymerElement {
+export class EventLog extends PolymerElement {
 
     static get properties() {
         return {
