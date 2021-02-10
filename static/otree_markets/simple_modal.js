@@ -1,4 +1,5 @@
 import { html, PolymerElement } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
+import '/static/otree-redwood/node_modules/@polymer/polymer/lib/elements/dom-repeat.js';
 
 /*
     this component implements a simple modal that gives the user the choice to accept or decline something.
@@ -14,6 +15,10 @@ export class SimpleModal extends PolymerElement {
             orders: Array,
             modal_text: String,
             on_close_callback: Object,
+            buttons: {
+                type: Array,
+                value: () => ['Decline', 'Accept']
+            }
         };
     }
 
@@ -51,8 +56,9 @@ export class SimpleModal extends PolymerElement {
             <div id="container">
                 <div>[[modal_text]]</div>
                 <div>
-                    <button type="button" value=1 on-click="_button_click">Accept</button>
-                    <button type="button" value=0 on-click="_button_click">Decline</button>
+                    <template is="dom-repeat" items="{{buttons}}">
+                        <button type="button" value="{{ index }}" on-click="_button_click">{{ item }}</button>
+                    </template>
                 </div>
             </div>
         `;
@@ -75,8 +81,8 @@ export class SimpleModal extends PolymerElement {
             this.style.display = 'none';
         }, {once: true});
 
-        const accepted = (event.target.value == 1);
-        this.on_close_callback(accepted);
+        const button_index = parseInt(event.target.value);
+        this.on_close_callback(button_index);
     }
 
 }
