@@ -6,12 +6,15 @@ from otree_redwood.models import Group as RedwoodGroup
 from jsonfield import JSONField
 from django.utils import timezone
 from django.contrib.contenttypes.fields import GenericRelation
+import logging
 
 from .exchange.cda_exchange import CDAExchange
 from .exchange.base import Order, Trade
 
 SINGLE_ASSET_NAME = 'A'
 '''the name of the only asset when in single-asset mode'''
+
+logger = logging.getLogger(__name__)
 
 class Subsession(BaseSubsession):
 
@@ -93,7 +96,9 @@ class Group(RedwoodGroup):
     def _on_cancel_event(self, event):
         '''handle a cancel message sent from the frontend'''
         canceled_order_dict = event.value
-        assert canceled_order_dict['pcode'] == event.participant.code, 'a player attempted to cancel another player\'s order'
+        if canceled_order_dict['pcode'] != event.participant.code:
+            logger.error('A player attempted to cancel another player\'s order')
+            return
 
         exchange = self.exchanges.get(asset_name=canceled_order_dict['asset_name'])
         exchange.cancel_order(canceled_order_dict['order_id'])

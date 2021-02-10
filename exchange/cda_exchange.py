@@ -1,8 +1,11 @@
 from django.db import models
 from itertools import chain
 from django.utils import timezone
+import logging
 
 from .base import BaseExchange, Order, Trade, OrderStatusEnum
+
+logger = logging.getLogger(__name__)
 
 class CDAExchange(BaseExchange):
     '''this model represents a continuous double auction exchange'''
@@ -76,7 +79,9 @@ class CDAExchange(BaseExchange):
     def cancel_order(self, order_id):
         '''cancel an already entered order'''
         canceled_order = self._get_order(order_id)
-        assert canceled_order.status == OrderStatusEnum.ACTIVE, 'canceled order is not active'
+        if canceled_order.status != OrderStatusEnum.ACTIVE:
+            logger.error(f'Cancel attempted on inactive order with id {order_id}')
+            return
 
         canceled_order.status = OrderStatusEnum.CANCELED
         canceled_order.time_inactive = timezone.now()
@@ -89,7 +94,9 @@ class CDAExchange(BaseExchange):
         this creates a new order and trades it directly with the order with id `order_id`,
         fully filling the accepted order'''
         accepted_order = self._get_order(accepted_order_id)
-        assert accepted_order.status == OrderStatusEnum.ACTIVE, 'accepted order is not active'
+        if accepted_order.status != OrderStatusEnum.ACTIVE:
+            logger.error(f'Accept attempted on inactive order with id {accepted_order_id}')
+            return
 
         now = timezone.now()
         taking_order = self.orders.create(
