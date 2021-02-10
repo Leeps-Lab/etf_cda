@@ -302,13 +302,16 @@ export class TraderState extends PolymerElement {
     // update timeRemaining once per second if it's defined
     _start() {
         if (!this.timeRemaining) return;
-        const start_time = performance.now();
-        const tick = () => {
-            if (this.timeRemaining <= 0) return;
-            this.timeRemaining --;
-            setTimeout(tick, 1000 - (performance.now() - start_time) % 100);
-        }
-        setTimeout(tick, 1000);
+        const fullPeriodLength = this.timeRemaining;
+        const startTime = performance.now();
+        const intervalId = setInterval(() => {
+            const secondsSinceStart = (performance.now() - startTime) / 1000;
+            this.timeRemaining = Math.floor(fullPeriodLength - secondsSinceStart);
+            if (this.timeRemaining <= 0) {
+                this.timeRemaining = 0;
+                clearInterval(intervalId)
+            }
+        }, 1000);
     }
 
     _compute_single_asset(assets_dict) {
