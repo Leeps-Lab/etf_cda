@@ -1,7 +1,6 @@
 import { PolymerElement, html } from '/static/otree-redwood/node_modules/@polymer/polymer/polymer-element.js';
 import '/static/otree-redwood/src/redwood-channel/redwood-channel.js';
 import '/static/otree-redwood/src/otree-constants/otree-constants.js';
-import '/static/otree-redwood/src/redwood-period/redwood-period.js';
 
 export class TraderState extends PolymerElement {
 
@@ -113,13 +112,14 @@ export class TraderState extends PolymerElement {
                 channel="error"
                 on-event="_handle_error"
             ></redwood-channel>
+            <redwood-channel
+                channel="state"
+                on-event="_state_event"
+            ></redwood-channel>
 
             <otree-constants
                 id="constants"
             ></otree-constants>
-            <redwood-period
-                on-period-start="_start"
-            ></redwood-period>
         `;
     }
 
@@ -297,6 +297,14 @@ export class TraderState extends PolymerElement {
     _update_subproperty(property, subproperty, amount) {
         const old = this.get([property, subproperty]);
         this.set([property, subproperty], old + amount);
+    }
+
+    // have to use a state channel to hook into period start instead of redwood-period
+    // it's a valid use case to use trader-state without redwood-period, maybe to display trading results
+    // on a results page. if we use redwood-period, that results page will try to auto-advance immediately
+    _state_event(event) {
+        if (event.detail.payload == 'period_start')
+            this._start()
     }
 
     // update timeRemaining once per second if it's defined
