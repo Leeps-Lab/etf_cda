@@ -140,6 +140,12 @@ class Group(RedwoodGroup):
 
         taking_player = self.get_player(trade.taking_order.pcode)
         for making_order in trade.making_orders.all():
+            # edge case: making player and taking player are the same
+            # just want to update available holdings and continue without making other changes
+            if trade.taking_order.pcode == making_order.pcode:
+                taking_player.update_holdings_available(making_order, True)
+                continue
+
             making_player = self.get_player(making_order.pcode)
             volume = making_order.traded_volume
             price = making_order.price
